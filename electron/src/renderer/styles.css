@@ -605,22 +605,28 @@ body {
 .quest-timer-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background-color: rgba(88, 101, 242, 0.15);
-  border: 1px solid rgba(88, 101, 242, 0.35);
-  color: #c7d5e0;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
+  border: 1px solid rgba(88, 101, 242, 0.4);
+  color: #ffffff;
+  padding: 0 16px;
+  height: 50px;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  user-select: none;
+  box-sizing: border-box;
+  box-shadow: 0 4px 15px rgba(88, 101, 242, 0.2);
   transition: all 0.2s ease;
 }
 
 .quest-timer-badge.completed {
   background-color: rgba(59, 165, 92, 0.15);
-  border-color: rgba(59, 165, 92, 0.4);
+  border-color: rgba(59, 165, 92, 0.45);
   color: #3ba55c;
+  box-shadow: 0 4px 15px rgba(59, 165, 92, 0.2);
 }
 
 /* --- Settings Form Elements --- */

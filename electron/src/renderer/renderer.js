@@ -175,10 +175,10 @@ function updateQuestTimerDisplay() {
 
   if (remaining > 0) {
     questTimerBadge.classList.remove('completed');
-    questTimerText.textContent = `Quest: ${formatTimerRemaining(remaining)} remaining`;
+    questTimerText.textContent = formatTimerRemaining(remaining);
   } else {
     questTimerBadge.classList.add('completed');
-    questTimerText.textContent = `Quest Complete (${appSettings.questDurationMinutes}m+)`;
+    questTimerText.textContent = '00:00';
   }
 }
 
