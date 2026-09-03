@@ -73,3 +73,13 @@ test('calculateTimerProgress calculates progress, remaining, and completion', ()
   assert.equal(finished.isComplete, true);
   assert.equal(finished.percent, 100);
 });
+
+test('formatTrayStatus handles single, multiple, and empty games', () => {
+  const { formatTrayStatus } = require('../src/launcher-state');
+  assert.equal(formatTrayStatus(0), 'No games running');
+  assert.equal(formatTrayStatus(-1), 'No games running');
+  assert.equal(formatTrayStatus(1, 'HELLDIVERS 2'), 'Running: HELLDIVERS 2');
+  assert.equal(formatTrayStatus(1), 'Running: Game');
+  assert.equal(formatTrayStatus(2), 'Running: 2 games');
+  assert.equal(formatTrayStatus(5), 'Running: 5 games');
+});

@@ -1,11 +1,11 @@
-const { app, BrowserWindow, ipcMain, shell, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Notification, Tray, Menu, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const { spawn } = require('child_process');
-const { makeGameKey } = require('./launcher-state');
+const { makeGameKey, formatTrayStatus } = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
 
@@ -13,7 +13,8 @@ const DEFAULT_SETTINGS = {
   questTimerEnabled: true,
   questDurationMinutes: 15,
   autoStopOnComplete: true,
-  notifyOnComplete: true
+  notifyOnComplete: true,
+  minimizeToTray: true
 };
 
 // In-memory cache to avoid re-reading/parsing large gamelist.json on every search.
@@ -430,6 +431,101 @@ async function maybeCheckForUpdates() {
 }
 
 
+let tray = null;
+let isQuitting = false;
+
+function getTrayIcon() {
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
+  if (fs.existsSync(iconPath)) {
+    return nativeImage.createFromPath(iconPath);
+  }
+  return nativeImage.createEmpty();
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+
+  const runningCount = runningProcesses.size;
+  let firstGameName = '';
+  if (runningCount === 1) {
+    const firstProc = Array.from(runningProcesses.values())[0];
+    firstGameName = firstProc?.game?.name || '';
+  }
+
+  const statusLabel = formatTrayStatus(runningCount, firstGameName);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open Launcher',
+      click: () => {
+        if (!mainWindow) return;
+        if (!mainWindow.isVisible()) mainWindow.show();
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+    },
+    { type: 'separator' },
+    {
+      label: statusLabel,
+      enabled: false
+    },
+    ...(runningCount > 0 ? [
+      {
+        label: 'Stop All Games',
+        click: () => {
+          for (const [gameKey, proc] of [...runningProcesses.entries()]) {
+            try { proc.kill(); } catch {}
+            runningProcesses.delete(gameKey);
+          }
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('launcher/gameExited', {});
+          }
+          updateTrayMenu();
+        }
+      }
+    ] : []),
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setContextMenu(contextMenu);
+  tray.setToolTip(`Discord Fake Game Launcher${runningCount > 0 ? ` (${statusLabel})` : ''}`);
+}
+
+function createTray() {
+  if (tray) return;
+
+  const icon = getTrayIcon();
+  tray = new Tray(icon);
+  tray.setToolTip('Discord Fake Game Launcher');
+
+  tray.on('click', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isVisible()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  tray.on('double-click', () => {
+    if (!mainWindow) return;
+    if (!mainWindow.isVisible()) mainWindow.show();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+
+  updateTrayMenu();
+}
+
 async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -445,11 +541,21 @@ async function createWindow() {
     }
   });
 
+  mainWindow.on('minimize', async (event) => {
+    const paths = getUserDataPaths();
+    const settings = await readJsonIfExists(paths.settingsPath, DEFAULT_SETTINGS);
+    if (settings.minimizeToTray !== false) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
 app.whenReady().then(async () => {
   await createWindow();
+  createTray();
 
   // Check for updates (packaged builds only)
   await maybeCheckForUpdates();
@@ -461,15 +567,31 @@ app.whenReady().then(async () => {
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-ipcMain.handle('app/window/minimize', () => {
-  mainWindow?.minimize();
+ipcMain.handle('app/window/minimize', async () => {
+  if (!mainWindow) return;
+  const paths = getUserDataPaths();
+  const settings = await readJsonIfExists(paths.settingsPath, DEFAULT_SETTINGS);
+  if (settings.minimizeToTray !== false) {
+    mainWindow.hide();
+  } else {
+    mainWindow.minimize();
+  }
 });
 
 ipcMain.handle('app/window/close', () => {
+  isQuitting = true;
   mainWindow?.close();
 });
 
@@ -885,10 +1007,13 @@ ipcMain.handle('launcher/launchGame', async (_evt, game) => {
     stdio: 'ignore'
   });
 
+  proc.game = game;
   runningProcesses.set(gameKey, proc);
+  updateTrayMenu();
 
   proc.once('exit', () => {
     runningProcesses.delete(gameKey);
+    updateTrayMenu();
     mainWindow?.webContents.send('launcher/gameExited', {
       gameKey,
       appId: String(game?.appId || ''),
@@ -908,6 +1033,7 @@ ipcMain.handle('launcher/stopGame', async (_evt, game) => {
       try { proc.kill(); } catch {}
       runningProcesses.delete(gameKey);
     }
+    updateTrayMenu();
     return { ok: true, stoppedAll: true };
   }
 
@@ -923,6 +1049,7 @@ ipcMain.handle('launcher/stopGame', async (_evt, game) => {
   }
 
   runningProcesses.delete(requestedKey);
+  updateTrayMenu();
   return { ok: true, stopped: true, gameKey: requestedKey };
 });
 

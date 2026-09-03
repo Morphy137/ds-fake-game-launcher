@@ -48,11 +48,23 @@ function calculateTimerProgress(startTime, durationMs, now = Date.now()) {
   return { elapsed, remaining, isComplete, percent };
 }
 
+function formatTrayStatus(runningGamesCount, firstGameName) {
+  const count = Math.max(0, Number(runningGamesCount) || 0);
+  if (count <= 0) {
+    return 'No games running';
+  }
+  if (count === 1) {
+    return `Running: ${firstGameName || 'Game'}`;
+  }
+  return `Running: ${count} games`;
+}
+
 module.exports = {
   makeGameKey,
   isGameRunning,
   syncRunningGameSet,
   removeExitedGame,
   formatTimerRemaining,
-  calculateTimerProgress
+  calculateTimerProgress,
+  formatTrayStatus
 };

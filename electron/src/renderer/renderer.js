@@ -85,6 +85,7 @@ const settingQuestTimerEnabled = document.getElementById('settingQuestTimerEnabl
 const settingQuestDuration = document.getElementById('settingQuestDuration');
 const settingAutoStop = document.getElementById('settingAutoStop');
 const settingNotify = document.getElementById('settingNotify');
+const settingMinimizeToTray = document.getElementById('settingMinimizeToTray');
 const questTimerBadge = document.getElementById('questTimerBadge');
 const questTimerText = document.getElementById('questTimerText');
 
@@ -92,7 +93,8 @@ let appSettings = {
   questTimerEnabled: true,
   questDurationMinutes: 15,
   autoStopOnComplete: true,
-  notifyOnComplete: true
+  notifyOnComplete: true,
+  minimizeToTray: true
 };
 
 const activeQuestTimers = new Map(); // key -> { startTime, durationMs, game, notified }
@@ -225,6 +227,7 @@ function openSettingsModal() {
   if (settingQuestDuration) settingQuestDuration.value = String(appSettings.questDurationMinutes || 15);
   if (settingAutoStop) settingAutoStop.checked = Boolean(appSettings.autoStopOnComplete);
   if (settingNotify) settingNotify.checked = Boolean(appSettings.notifyOnComplete);
+  if (settingMinimizeToTray) settingMinimizeToTray.checked = Boolean(appSettings.minimizeToTray !== false);
   if (settingsModal) settingsModal.style.display = 'flex';
 }
 
@@ -1127,7 +1130,8 @@ if (settingsSaveBtn) {
       questTimerEnabled: settingQuestTimerEnabled ? settingQuestTimerEnabled.checked : true,
       questDurationMinutes: settingQuestDuration ? parseInt(settingQuestDuration.value, 10) || 15 : 15,
       autoStopOnComplete: settingAutoStop ? settingAutoStop.checked : true,
-      notifyOnComplete: settingNotify ? settingNotify.checked : true
+      notifyOnComplete: settingNotify ? settingNotify.checked : true,
+      minimizeToTray: settingMinimizeToTray ? settingMinimizeToTray.checked : true
     };
     if (launcherApi.saveSettings) {
       await launcherApi.saveSettings(appSettings);
