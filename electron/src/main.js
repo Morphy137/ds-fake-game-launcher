@@ -458,6 +458,11 @@ let tray = null;
 let isQuitting = false;
 
 function getTrayIcon() {
+  const customIcon = path.join(__dirname, 'assets', 'app-icon.png');
+  if (fs.existsSync(customIcon)) {
+    const img = nativeImage.createFromPath(customIcon);
+    return img.resize({ width: 16, height: 16 });
+  }
   const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
   if (fs.existsSync(iconPath)) {
     return nativeImage.createFromPath(iconPath);
@@ -598,26 +603,19 @@ function createTray() {
 }
 
 async function createWindow() {
+  const iconPath = path.join(__dirname, 'assets', 'app-icon.png');
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 700,
     minWidth: 900,
     minHeight: 600,
     frame: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: '#36393f',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
-    }
-  });
-
-  mainWindow.on('minimize', async (event) => {
-    const paths = getUserDataPaths();
-    const settings = await readJsonIfExists(paths.settingsPath, DEFAULT_SETTINGS);
-    if (settings.minimizeToTray !== false) {
-      event.preventDefault();
-      mainWindow.hide();
     }
   });
 
@@ -650,13 +648,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-ipcMain.handle('app/window/minimize', async () => {
-  if (!mainWindow) return;
-  const paths = getUserDataPaths();
-  const settings = await readJsonIfExists(paths.settingsPath, DEFAULT_SETTINGS);
-  if (settings.minimizeToTray !== false) {
-    mainWindow.hide();
-  } else {
+ipcMain.handle('app/window/minimize', () => {
+  if (mainWindow) {
     mainWindow.minimize();
   }
 });
