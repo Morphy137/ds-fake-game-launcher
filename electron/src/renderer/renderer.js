@@ -307,6 +307,11 @@ function getGameCoverCandidates(game) {
   if (!game || typeof game !== 'object') return [];
   const candidates = [];
 
+  // 0. Local Steam library cache poster (fastest & 100% matches user's Steam library)
+  if (game.localSteamCover) {
+    candidates.push(game.localSteamCover);
+  }
+
   const steamId = String(game.steamAppId || '').trim();
   if (steamId) {
     // 1. Steam vertical library poster

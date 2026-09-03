@@ -99,6 +99,28 @@ function getSteamPath() {
   return null;
 }
 
+async function findLocalSteamCapsule(steamAppId) {
+  if (!steamAppId) return null;
+  const steamPath = getSteamPath();
+  if (!steamPath) return null;
+
+  const appDir = path.join(steamPath, 'appcache', 'librarycache', String(steamAppId));
+  try {
+    if (!fs.existsSync(appDir)) return null;
+    const entries = await fsp.readdir(appDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const capsulePath = path.join(appDir, entry.name, 'library_capsule.jpg');
+        if (fs.existsSync(capsulePath)) {
+          const buffer = await fsp.readFile(capsulePath);
+          return `data:image/jpeg;base64,${buffer.toString('base64')}`;
+        }
+      }
+    }
+  } catch {}
+  return null;
+}
+
 function toDatabaseGames(detectableApps) {
   const result = [];
   for (const appEntry of detectableApps || []) {
@@ -708,6 +730,16 @@ ipcMain.handle('launcher/getMyGames', async () => {
 
   if (changed) {
     try { await writeJson(paths.myGamesPath, safeList); } catch { /* ignore */ }
+  }
+
+  // Enrich local Steam library capsule in memory if present on user's machine
+  for (const g of safeList) {
+    if (g && g.steamAppId) {
+      try {
+        const localCover = await findLocalSteamCapsule(g.steamAppId);
+        if (localCover) g.localSteamCover = localCover;
+      } catch {}
+    }
   }
 
   return safeList;
