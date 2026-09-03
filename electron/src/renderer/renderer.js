@@ -294,10 +294,10 @@ function updateDetailsPanel() {
       detailSteamStatus.textContent = `Configured (Steam AppID: ${steamId})`;
       detailSteamStatus.style.color = 'var(--success)';
     } else if (selectedGame.requiresSteam) {
-      detailSteamStatus.textContent = `Required for Discord (Steam AppID: ${steamId}) — Click to setup`;
+      detailSteamStatus.textContent = `Required for Discord (Steam AppID: ${steamId})`;
       detailSteamStatus.style.color = 'var(--danger)';
     } else {
-      detailSteamStatus.textContent = `Available (Steam AppID: ${steamId}) — Click to setup`;
+      detailSteamStatus.textContent = `Available (Optional) (Steam AppID: ${steamId})`;
       detailSteamStatus.style.color = 'var(--brand)';
     }
   }

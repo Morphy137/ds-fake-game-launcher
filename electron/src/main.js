@@ -696,8 +696,9 @@ ipcMain.handle('launcher/getMyGames', async () => {
             changed = true;
           }
           const hasNoExe = !dbEntry.executables || dbEntry.executables.length === 0;
-          if (g.requiresSteam === undefined) {
-            g.requiresSteam = Boolean(hasNoExe && (g.steamAppId || steamSku?.id));
+          const isRequired = Boolean(hasNoExe && (g.steamAppId || steamSku?.id));
+          if (g.requiresSteam !== isRequired) {
+            g.requiresSteam = isRequired;
             changed = true;
           }
         }
@@ -719,16 +720,20 @@ ipcMain.handle('launcher/addGame', async (_evt, game) => {
   const myGames = await readJsonIfExists(paths.myGamesPath, []);
   const safeList = Array.isArray(myGames) ? myGames : [];
 
-  const hasNoExe = !game?.executables || game.executables.length === 0;
+  const dbEntry = databaseCache.games.find(db => String(db.id) === String(game?.id));
+  const hasNoExe = !dbEntry || !dbEntry.executables || dbEntry.executables.length === 0;
+  const steamAppId = game?.steamAppId || dbEntry?.third_party_skus?.find(s => s.distributor === 'steam')?.id || null;
+  const isRequired = Boolean(hasNoExe && steamAppId);
+
   const entry = {
     appId: String(game?.id || ''),
     name: String(game?.name || 'Game'),
     exe: String(game?.exe || ''),
     isFavorite: false,
-    steamAppId: game?.steamAppId ? String(game.steamAppId) : null,
-    iconHash: game?.iconHash ? String(game.iconHash) : null,
-    coverImageHash: game?.coverImageHash ? String(game.coverImageHash) : null,
-    requiresSteam: Boolean(hasNoExe && game?.steamAppId)
+    steamAppId: steamAppId ? String(steamAppId) : null,
+    iconHash: game?.iconHash ? String(game.iconHash) : (dbEntry?.icon_hash || null),
+    coverImageHash: game?.coverImageHash ? String(game.coverImageHash) : (dbEntry?.cover_image_hash || null),
+    requiresSteam: isRequired
   };
 
   // Avoid duplicates by (appId + exe)
