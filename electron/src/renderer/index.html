@@ -173,9 +173,9 @@
         <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
           The launcher will use a fallback executable, but it may not work properly for tracking quests.
         </div>
-        <div style="display:flex; gap:10px; justify-content:flex-end;">
-          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="warningCancelBtn">Cancel</button>
-          <button class="btn-add-game" style="background-color: #faa61a; color: #fff; border: none;" id="warningConfirmBtn">Add Anyway</button>
+        <div class="modal-footer modal-footer-end">
+          <button class="btn-secondary" id="warningCancelBtn">Cancel</button>
+          <button class="btn-primary" style="background-color: #faa61a;" id="warningConfirmBtn">Add Anyway</button>
         </div>
       </div>
     </div>
@@ -195,9 +195,9 @@
         <div class="search-wrapper" style="margin-bottom: 16px;">
           <input type="text" class="search-input" id="editExeInput" placeholder="game.exe" spellcheck="false" />
         </div>
-        <div style="display:flex; gap:10px; justify-content:flex-end;">
-          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="editExeCancelBtn">Cancel</button>
-          <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="editExeSaveBtn">Save Changes</button>
+        <div class="modal-footer modal-footer-end">
+          <button class="btn-secondary" id="editExeCancelBtn">Cancel</button>
+          <button class="btn-primary" id="editExeSaveBtn">Save Changes</button>
         </div>
       </div>
     </div>
@@ -232,11 +232,11 @@
           <input type="text" class="search-input" id="steamExeRelInput" placeholder="e.g. Binaries/Win64/MTFSSteam-Win64-Shipping.exe" spellcheck="false" />
         </div>
 
-        <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 20px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
-          <button id="steamRemoveBtn" style="display: none; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid var(--danger); background: transparent; color: var(--danger); cursor: pointer; white-space: nowrap;">Remove from Steam</button>
+        <div class="modal-footer modal-footer-between">
+          <button class="btn-danger-outline" id="steamRemoveBtn" style="display: none;">Remove from Steam</button>
           <div style="display: flex; gap: 10px; margin-left: auto; align-items: center;">
-            <button id="steamCancelBtn" style="height: 38px; padding: 0 18px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.15); background: transparent; color: var(--text-normal); cursor: pointer; white-space: nowrap;">Cancel</button>
-            <button id="steamConfirmBtn" style="height: 38px; padding: 0 20px; font-size: 13px; font-weight: 600; border-radius: 6px; border: none; background-color: var(--brand); color: #ffffff; cursor: pointer; white-space: nowrap;">Install to Steam</button>
+            <button class="btn-secondary" id="steamCancelBtn">Cancel</button>
+            <button class="btn-primary" id="steamConfirmBtn">Install to Steam</button>
           </div>
         </div>
       </div>
@@ -300,9 +300,9 @@
           </div>
         </div>
 
-        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top: 16px;">
-          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="settingsCancelBtn">Cancel</button>
-          <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="settingsSaveBtn">Save Settings</button>
+        <div class="modal-footer modal-footer-end">
+          <button class="btn-secondary" id="settingsCancelBtn">Cancel</button>
+          <button class="btn-primary" id="settingsSaveBtn">Save Settings</button>
         </div>
       </div>
     </div>
