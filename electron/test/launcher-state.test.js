@@ -85,11 +85,19 @@ test('formatTrayStatus handles single, multiple, and empty games', () => {
 });
 
 test('resolveGameCoverUrl resolves Steam, Discord Cover, Discord Icon, and null', () => {
-  const { resolveGameCoverUrl } = require('../src/launcher-state');
+  const { resolveGameCoverUrl, getGameCoverCandidates } = require('../src/launcher-state');
 
   // Steam App ID priority
   const steamGame = { appId: '123', name: 'Helldivers', steamAppId: '553850', coverImageHash: 'abc', iconHash: 'def' };
   assert.equal(resolveGameCoverUrl(steamGame), 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/553850/library_600x900.jpg');
+
+  // Candidates chain includes Steam poster, Steam header, Discord cover, and Discord icon
+  const candidates = getGameCoverCandidates(steamGame);
+  assert.equal(candidates.length, 4);
+  assert.equal(candidates[0], 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/553850/library_600x900.jpg');
+  assert.equal(candidates[1], 'https://cdn.akamai.steamstatic.com/steam/apps/553850/header.jpg');
+  assert.equal(candidates[2], 'https://cdn.discordapp.com/app-icons/123/abc.png?size=512');
+  assert.equal(candidates[3], 'https://cdn.discordapp.com/app-icons/123/def.png?size=256');
 
   // Discord cover image
   const discordCoverGame = { appId: '356875221078245376', name: 'Overwatch', coverImageHash: '843a3b07639f068fdacf40b9c3808c46', iconHash: 'a60bb76ba4d4acafbd4cb9aad6e61739' };
@@ -102,4 +110,5 @@ test('resolveGameCoverUrl resolves Steam, Discord Cover, Discord Icon, and null'
   // Fallback null
   assert.equal(resolveGameCoverUrl({ appId: '999', name: 'NoArt' }), null);
   assert.equal(resolveGameCoverUrl(null), null);
+  assert.deepEqual(getGameCoverCandidates(null), []);
 });

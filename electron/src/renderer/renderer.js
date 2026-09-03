@@ -281,47 +281,57 @@ function updateDetailsPanel() {
   detailFavorite.textContent = selectedGame.isFavorite ? 'Yes' : 'No';
   detailRunning.textContent = isGameRunning(selectedGame) ? 'Yes' : 'No';
 
-  const needsSteam = Boolean(
+  const hasSteamOption = Boolean(
     selectedGame.useSteamPath ||
-    (selectedGame.usesNewDetection && selectedGame.steamAppId) ||
-    selectedGame.name.toLowerCase().includes('tokon')
+    selectedGame.requiresSteam ||
+    selectedGame.steamAppId
   );
 
   if (detailSteamItem) {
-    detailSteamItem.style.display = needsSteam ? 'block' : 'none';
+    detailSteamItem.style.display = hasSteamOption ? 'block' : 'none';
   }
 
-  if (needsSteam && detailSteamStatus) {
+  if (hasSteamOption && detailSteamStatus) {
+    const steamId = selectedGame.steamAppId || '3787240';
     if (selectedGame.useSteamPath) {
-      detailSteamStatus.textContent = `Configured (Steam AppID: ${selectedGame.steamAppId || '3787240'})`;
+      detailSteamStatus.textContent = `Configured (Steam AppID: ${steamId})`;
       detailSteamStatus.style.color = 'var(--success)';
-    } else if (selectedGame.steamAppId || selectedGame.name.toLowerCase().includes('tokon')) {
-      const id = selectedGame.steamAppId || '3787240';
-      detailSteamStatus.textContent = `Available (Steam AppID: ${id}) — Click to setup`;
-      detailSteamStatus.style.color = 'var(--brand)';
+    } else if (selectedGame.requiresSteam) {
+      detailSteamStatus.textContent = `Required for Discord (Steam AppID: ${steamId}) — Click to setup`;
+      detailSteamStatus.style.color = 'var(--danger)';
     } else {
-      detailSteamStatus.textContent = 'Not Configured (Click to setup)';
-      detailSteamStatus.style.color = 'var(--text-muted)';
+      detailSteamStatus.textContent = `Available (Steam AppID: ${steamId}) — Click to setup`;
+      detailSteamStatus.style.color = 'var(--brand)';
     }
   }
 }
 
-function resolveGameCover(game) {
-  if (!game) return null;
+function getGameCoverCandidates(game) {
+  if (!game || typeof game !== 'object') return [];
+  const candidates = [];
+
   const steamId = String(game.steamAppId || '').trim();
   if (steamId) {
-    return `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamId}/library_600x900.jpg`;
+    // 1. Steam vertical library poster
+    candidates.push(`https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamId}/library_600x900.jpg`);
+    // 2. Steam header capsule
+    candidates.push(`https://cdn.akamai.steamstatic.com/steam/apps/${steamId}/header.jpg`);
   }
+
   const appId = String(game.appId || game.id || '').trim();
   const coverHash = String(game.coverImageHash || game.cover_image_hash || '').trim();
   if (appId && coverHash) {
-    return `https://cdn.discordapp.com/app-icons/${appId}/${coverHash}.png?size=512`;
+    // 3. Discord CDN official cover
+    candidates.push(`https://cdn.discordapp.com/app-icons/${appId}/${coverHash}.png?size=512`);
   }
+
   const iconHash = String(game.iconHash || game.icon_hash || '').trim();
   if (appId && iconHash) {
-    return `https://cdn.discordapp.com/app-icons/${appId}/${iconHash}.png?size=256`;
+    // 4. Discord CDN official icon
+    candidates.push(`https://cdn.discordapp.com/app-icons/${appId}/${iconHash}.png?size=256`);
   }
-  return null;
+
+  return candidates;
 }
 
 function getGameInitials(name) {
@@ -356,7 +366,7 @@ function renderGridView(filter = '') {
 
   for (const game of matchedGames) {
     const isRunning = isGameRunning(game);
-    const coverUrl = resolveGameCover(game);
+    const candidates = getGameCoverCandidates(game);
     const initials = getGameInitials(game.name);
 
     const card = document.createElement('div');
@@ -378,8 +388,8 @@ function renderGridView(filter = '') {
           ${starSvg}
         </div>
 
-        ${coverUrl ? `
-          <img class="game-card-poster" src="${coverUrl}" alt="${game.name}" loading="lazy" />
+        ${candidates.length > 0 ? `
+          <img class="game-card-poster" src="${candidates[0]}" alt="${game.name}" loading="lazy" />
           <div class="game-card-placeholder" style="display: none;">
             <div class="game-card-initials">${initials}</div>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4;"><rect x="2" y="6" width="20" height="12" rx="3"></rect><circle cx="8" cy="12" r="1.5"></circle><circle cx="16" cy="12" r="1.5"></circle></svg>
@@ -406,10 +416,16 @@ function renderGridView(filter = '') {
 
     const img = card.querySelector('.game-card-poster');
     if (img) {
+      let candIndex = 0;
       img.onerror = () => {
-        img.style.display = 'none';
-        const placeholder = card.querySelector('.game-card-placeholder');
-        if (placeholder) placeholder.style.display = 'flex';
+        candIndex++;
+        if (candIndex < candidates.length) {
+          img.src = candidates[candIndex];
+        } else {
+          img.style.display = 'none';
+          const placeholder = card.querySelector('.game-card-placeholder');
+          if (placeholder) placeholder.style.display = 'flex';
+        }
       };
     }
 

@@ -59,29 +59,37 @@ function formatTrayStatus(runningGamesCount, firstGameName) {
   return `Running: ${count} games`;
 }
 
-function resolveGameCoverUrl(game) {
-  if (!game || typeof game !== 'object') return null;
+function getGameCoverCandidates(game) {
+  if (!game || typeof game !== 'object') return [];
+  const candidates = [];
 
-  // 1. Steam vertical library poster
   const steamId = String(game.steamAppId || '').trim();
   if (steamId) {
-    return `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamId}/library_600x900.jpg`;
+    // 1. High-res Steam library poster (600x900)
+    candidates.push(`https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamId}/library_600x900.jpg`);
+    // 2. Steam header capsule
+    candidates.push(`https://cdn.akamai.steamstatic.com/steam/apps/${steamId}/header.jpg`);
   }
 
-  // 2. Discord CDN Cover
   const appId = String(game.appId || game.id || '').trim();
   const coverHash = String(game.coverImageHash || game.cover_image_hash || '').trim();
   if (appId && coverHash) {
-    return `https://cdn.discordapp.com/app-icons/${appId}/${coverHash}.png?size=512`;
+    // 3. Discord CDN official cover
+    candidates.push(`https://cdn.discordapp.com/app-icons/${appId}/${coverHash}.png?size=512`);
   }
 
-  // 3. Discord CDN Icon
   const iconHash = String(game.iconHash || game.icon_hash || '').trim();
   if (appId && iconHash) {
-    return `https://cdn.discordapp.com/app-icons/${appId}/${iconHash}.png?size=256`;
+    // 4. Discord CDN official icon
+    candidates.push(`https://cdn.discordapp.com/app-icons/${appId}/${iconHash}.png?size=256`);
   }
 
-  return null;
+  return candidates;
+}
+
+function resolveGameCoverUrl(game) {
+  const candidates = getGameCoverCandidates(game);
+  return candidates.length > 0 ? candidates[0] : null;
 }
 
 module.exports = {
@@ -92,5 +100,6 @@ module.exports = {
   formatTimerRemaining,
   calculateTimerProgress,
   formatTrayStatus,
+  getGameCoverCandidates,
   resolveGameCoverUrl
 };
