@@ -57,6 +57,18 @@ const editExeInput = document.getElementById('editExeInput');
 const editExeSubtitle = document.getElementById('editExeSubtitle');
 let gameBeingEdited = null;
 
+// Steam Integration modal & details
+const steamModal = document.getElementById('steamModal');
+const steamCloseBtn = document.getElementById('steamCloseBtn');
+const steamCancelBtn = document.getElementById('steamCancelBtn');
+const steamConfirmBtn = document.getElementById('steamConfirmBtn');
+const steamAppIdInput = document.getElementById('steamAppIdInput');
+const steamInstallDirInput = document.getElementById('steamInstallDirInput');
+const steamExeRelInput = document.getElementById('steamExeRelInput');
+const detailSteamStatus = document.getElementById('detailSteamStatus');
+const steamActionBtn = document.getElementById('steamActionBtn');
+let gameForSteamSetup = null;
+
 let updateUiState = {
   visible: false,
   installing: false
@@ -139,6 +151,20 @@ function updateDetailsPanel() {
   detailExe.textContent = selectedGame.exe || dash;
   detailFavorite.textContent = selectedGame.isFavorite ? 'Yes' : 'No';
   detailRunning.textContent = isGameRunning(selectedGame) ? 'Yes' : 'No';
+
+  if (detailSteamStatus) {
+    if (selectedGame.useSteamPath) {
+      detailSteamStatus.textContent = `Configured (Steam AppID: ${selectedGame.steamAppId || '3787240'})`;
+      detailSteamStatus.style.color = 'var(--success)';
+    } else if (selectedGame.steamAppId || selectedGame.name.toLowerCase().includes('tokon')) {
+      const id = selectedGame.steamAppId || '3787240';
+      detailSteamStatus.textContent = `Available (Steam AppID: ${id}) — Click to setup`;
+      detailSteamStatus.style.color = 'var(--brand)';
+    } else {
+      detailSteamStatus.textContent = 'Not Configured (Click to setup)';
+      detailSteamStatus.style.color = 'var(--text-muted)';
+    }
+  }
 }
 
 // No background thumbnails in the public build.
@@ -192,6 +218,7 @@ function openGameContextMenu(game, x, y) {
 
   contextMenuEl.innerHTML = `
     <div class="context-menu-item" id="ctxEditExe">Edit executable</div>
+    <div class="context-menu-item" id="ctxSteam">Setup Steam manifest</div>
     <div class="context-menu-item" id="ctxShortcut">Create shortcut</div>
     <div class="context-menu-item danger" id="ctxDelete">Delete from library</div>
   `;
@@ -219,12 +246,18 @@ function openGameContextMenu(game, x, y) {
   });
 
   const editExeCtxBtn = document.getElementById('ctxEditExe');
+  const ctxSteamBtn = document.getElementById('ctxSteam');
   const shortcutBtn = document.getElementById('ctxShortcut');
   const deleteBtn = document.getElementById('ctxDelete');
 
   editExeCtxBtn.addEventListener('click', () => {
     closeContextMenu();
     openEditExeModal(game);
+  });
+
+  ctxSteamBtn.addEventListener('click', () => {
+    closeContextMenu();
+    openSteamModal(game);
   });
 
   shortcutBtn.addEventListener('click', async () => {
@@ -333,6 +366,35 @@ function closeEditExeModal() {
     editExeModal.style.display = 'none';
   }
   gameBeingEdited = null;
+}
+
+function openSteamModal(game) {
+  if (!game) return;
+  gameForSteamSetup = game;
+
+  let defaultSteamAppId = game.steamAppId || '';
+  let defaultInstallDir = game.installDir || '';
+  let defaultExeRel = game.exe || '';
+
+  // Smart defaults for Marvel Tokon
+  if (game.name && game.name.toLowerCase().includes('tokon')) {
+    if (!defaultSteamAppId) defaultSteamAppId = '3787240';
+    if (!defaultInstallDir) defaultInstallDir = 'MTFS';
+    if (!defaultExeRel || !defaultExeRel.includes('MTFSSteam')) {
+      defaultExeRel = 'Binaries/Win64/MTFSSteam-Win64-Shipping.exe';
+    }
+  }
+
+  if (steamAppIdInput) steamAppIdInput.value = defaultSteamAppId;
+  if (steamInstallDirInput) steamInstallDirInput.value = defaultInstallDir || game.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+  if (steamExeRelInput) steamExeRelInput.value = defaultExeRel;
+
+  if (steamModal) steamModal.style.display = 'flex';
+}
+
+function closeSteamModal() {
+  if (steamModal) steamModal.style.display = 'none';
+  gameForSteamSetup = null;
 }
 
 function showUpdateModal(payload) {
@@ -762,6 +824,73 @@ if (detailExe) {
     if (selectedGame && !isGameRunning(selectedGame)) {
       openEditExeModal(selectedGame);
     }
+  });
+}
+
+// Steam Integration events
+if (steamCloseBtn) steamCloseBtn.addEventListener('click', closeSteamModal);
+if (steamCancelBtn) steamCancelBtn.addEventListener('click', closeSteamModal);
+
+if (steamConfirmBtn) {
+  steamConfirmBtn.addEventListener('click', async () => {
+    if (!gameForSteamSetup) return;
+    const steamAppId = steamAppIdInput ? steamAppIdInput.value.trim() : '';
+    const installDir = steamInstallDirInput ? steamInstallDirInput.value.trim() : '';
+    const exe = steamExeRelInput ? steamExeRelInput.value.trim() : '';
+
+    if (!steamAppId) {
+      log('Steam App ID is required.', 'log-danger');
+      return;
+    }
+
+    log(`Configuring Steam manifest for ${gameForSteamSetup.name} (AppID: ${steamAppId})...`);
+    const r = await launcherApi.setupSteamIntegration({
+      appId: gameForSteamSetup.appId,
+      steamAppId,
+      installDir,
+      exe
+    });
+
+    if (!r?.ok) {
+      log(`Steam setup failed: ${r?.error || 'unknown error'}`, 'log-danger');
+      return;
+    }
+
+    gameForSteamSetup.useSteamPath = true;
+    gameForSteamSetup.steamAppId = steamAppId;
+    gameForSteamSetup.installDir = installDir;
+    gameForSteamSetup.exe = exe;
+    gameForSteamSetup.steamExePath = r.destExePath;
+
+    closeSteamModal();
+    log(`Steam manifest and dummy successfully installed in Steam library!`, 'log-success');
+    log(`Important: Restart Steam and Discord if the game is not immediately detected.`, 'log-entry');
+
+    if (selectedGame && String(selectedGame.appId) === String(gameForSteamSetup.appId)) {
+      selectedGame.useSteamPath = true;
+      selectedGame.steamAppId = steamAppId;
+      selectedGame.installDir = installDir;
+      selectedGame.exe = exe;
+      selectedGame.steamExePath = r.destExePath;
+      const heroExeEl = document.getElementById('heroExe');
+      if (heroExeEl) heroExeEl.innerText = exe;
+      updateDetailsPanel();
+    }
+
+    renderMainList(searchInput.value);
+  });
+}
+
+if (steamActionBtn) {
+  steamActionBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (selectedGame) openSteamModal(selectedGame);
+  });
+}
+
+if (detailSteamStatus) {
+  detailSteamStatus.addEventListener('click', () => {
+    if (selectedGame) openSteamModal(selectedGame);
   });
 }
 

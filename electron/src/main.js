@@ -66,6 +66,29 @@ function pickBestExecutable(appEntry) {
   return anyWin32 || null;
 }
 
+function getSteamPath() {
+  if (process.platform !== 'win32') return null;
+
+  try {
+    const { execSync } = require('child_process');
+    const out = execSync('reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath', { encoding: 'utf8' });
+    const match = out.match(/SteamPath\s+REG_SZ\s+(.+)/i);
+    if (match) {
+      const p = path.resolve(match[1].trim());
+      if (fs.existsSync(p)) return p;
+    }
+  } catch {}
+
+  const defaults = [
+    'C:\\Program Files (x86)\\Steam',
+    'C:\\Program Files\\Steam'
+  ];
+  for (const d of defaults) {
+    if (fs.existsSync(d)) return d;
+  }
+  return null;
+}
+
 function toDatabaseGames(detectableApps) {
   const result = [];
   for (const appEntry of detectableApps || []) {
@@ -75,12 +98,20 @@ function toDatabaseGames(detectableApps) {
     const appId = String(appEntry.id || '');
     const exeName = bestExe?.name ? String(bestExe.name) : fallbackExeNameFromTitle(appEntry.name);
 
+    const steamSku = Array.isArray(appEntry.third_party_skus)
+      ? appEntry.third_party_skus.find(s => String(s?.distributor || '').toLowerCase() === 'steam')
+      : null;
+    const steamAppId = steamSku?.id ? String(steamSku.id) : null;
+
     result.push({
       id: appId,
       name: String(appEntry.name),
       exe: exeName,
       isLauncher: Boolean(bestExe?.is_launcher),
       usesNewDetection: !bestExe || !bestExe.name, // <-- FLAG FOR FRONTEND
+      steamAppId,
+      iconHash: appEntry.icon_hash ? String(appEntry.icon_hash) : null,
+      coverImageHash: appEntry.cover_image_hash ? String(appEntry.cover_image_hash) : null,
       _nameLower: String(appEntry.name).toLowerCase()
     });
   }
@@ -127,7 +158,10 @@ function pageDatabaseGames({ filter, offset, limit }) {
         name: g.name,
         exe: g.exe,
         isLauncher: g.isLauncher,
-        usesNewDetection: g.usesNewDetection // <-- SEND TO FRONTEND
+        usesNewDetection: g.usesNewDetection,
+        steamAppId: g.steamAppId,
+        iconHash: g.iconHash,
+        coverImageHash: g.coverImageHash
       });
     }
 
@@ -267,6 +301,10 @@ async function findDummyGameTemplate() {
 }
 
 async function ensureFakeExeForGame(game, paths) {
+  if (game?.useSteamPath && game?.steamExePath && fs.existsSync(game.steamExePath)) {
+    return { destExePath: game.steamExePath, workingDirectory: path.dirname(game.steamExePath) };
+  }
+
   const dummySourceExe = await findDummyGameTemplate();
   if (!dummySourceExe) {
     throw new Error('Could not find DummyGame.exe. Run: npm run build:dummy (from electron/), or set DUMMYGAME_EXE env var to the built DummyGame.exe path.');
@@ -477,7 +515,10 @@ ipcMain.handle('launcher/addGame', async (_evt, game) => {
     appId: String(game?.id || ''),
     name: String(game?.name || 'Game'),
     exe: String(game?.exe || ''),
-    isFavorite: false
+    isFavorite: false,
+    steamAppId: game?.steamAppId ? String(game.steamAppId) : null,
+    iconHash: game?.iconHash ? String(game.iconHash) : null,
+    coverImageHash: game?.coverImageHash ? String(game.coverImageHash) : null
   };
 
   // Avoid duplicates by (appId + exe)
@@ -560,6 +601,94 @@ ipcMain.handle('launcher/updateGameExecutable', async (_evt, { appId, oldExe, ne
   await writeJson(paths.myGamesPath, safeList);
 
   return { ok: true, updatedGame: game };
+});
+
+ipcMain.handle('launcher/getSteamPath', async () => {
+  return getSteamPath();
+});
+
+ipcMain.handle('launcher/setupSteamIntegration', async (_evt, { appId, steamAppId, installDir, exe }) => {
+  const cleanSteamAppId = String(steamAppId || '').trim();
+  if (!cleanSteamAppId || !/^\d+$/.test(cleanSteamAppId)) {
+    return { ok: false, error: 'Valid numeric Steam App ID is required.' };
+  }
+
+  const cleanInstallDir = sanitizeFolderName(installDir || 'MTFS');
+  const cleanExe = String(exe || 'game.exe').trim().replace(/[<>:"|?*]/g, '_');
+  const finalExe = cleanExe.toLowerCase().endsWith('.exe') ? cleanExe : `${cleanExe}.exe`;
+
+  const steamPath = getSteamPath();
+  if (!steamPath) {
+    return { ok: false, error: 'Steam installation path could not be found on this computer.' };
+  }
+
+  const dummySourceExe = await findDummyGameTemplate();
+  if (!dummySourceExe) {
+    return { ok: false, error: 'Could not find DummyGame.exe template. Please build it first.' };
+  }
+
+  try {
+    const steamAppsDir = path.join(steamPath, 'steamapps');
+    ensureDirSync(steamAppsDir);
+
+    const paths = getUserDataPaths();
+    const myGames = await readJsonIfExists(paths.myGamesPath, []);
+    const safeList = Array.isArray(myGames) ? myGames : [];
+
+    const game = safeList.find(g => String(g?.appId || '') === String(appId || ''));
+    const gameDisplayName = game?.name || 'Steam Game';
+
+    // 1) Write appmanifest_<id>.acf
+    const acfPath = path.join(steamAppsDir, `appmanifest_${cleanSteamAppId}.acf`);
+    const acfContent = `"AppState"\n{\n    "appid" "${cleanSteamAppId}"\n    "name" "${gameDisplayName}"\n    "installdir" "${cleanInstallDir}"\n}\n`;
+    await fsp.writeFile(acfPath, acfContent, 'utf8');
+
+    // 2) Create game directory in steamapps/common/<installDir>/<exeRelDir>
+    const exeRelPath = normalizeExeRelPath(finalExe);
+    const exeFolderPart = path.dirname(exeRelPath) === '.' ? '' : path.dirname(exeRelPath);
+    const exeFileName = path.basename(exeRelPath);
+
+    const gameTargetDir = path.join(steamAppsDir, 'common', cleanInstallDir, exeFolderPart);
+    ensureDirSync(gameTargetDir);
+
+    const destExePath = path.join(gameTargetDir, exeFileName);
+
+    // Copy exe
+    await fsp.copyFile(dummySourceExe, destExePath);
+
+    // Copy sidecars
+    const sourceDir = path.dirname(dummySourceExe);
+    const dummyBase = path.basename(dummySourceExe, path.extname(dummySourceExe));
+    const sidecars = await fsp.readdir(sourceDir);
+    for (const fileName of sidecars) {
+      if (!fileName.toLowerCase().startsWith(dummyBase.toLowerCase() + '.')) continue;
+      if (fileName.toLowerCase() === path.basename(dummySourceExe).toLowerCase()) continue;
+
+      const src = path.join(sourceDir, fileName);
+      const dest = path.join(gameTargetDir, fileName);
+      await fsp.copyFile(src, dest);
+    }
+
+    // 3) Update game entry in myGames.json
+    if (game) {
+      game.useSteamPath = true;
+      game.steamAppId = cleanSteamAppId;
+      game.installDir = cleanInstallDir;
+      game.exe = finalExe;
+      game.steamExePath = destExePath;
+      await writeJson(paths.myGamesPath, safeList);
+    }
+
+    return {
+      ok: true,
+      manifestPath: acfPath,
+      destExePath,
+      steamPath,
+      updatedGame: game
+    };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e || 'Failed to setup Steam manifest') };
+  }
 });
 
 ipcMain.handle('launcher/createShortcut', async (_evt, { appId, exe }) => {

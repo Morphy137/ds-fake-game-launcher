@@ -81,6 +81,15 @@
                 <div class="details-label">Running</div>
                 <div class="details-value" id="detailRunning">—</div>
               </div>
+              <div class="details-item" id="detailSteamItem">
+                <div class="details-label" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>Steam Integration</span>
+                  <button id="steamActionBtn" class="btn-edit-icon" title="Setup or update Steam Manifest" aria-label="Setup Steam Manifest">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                  </button>
+                </div>
+                <div class="details-value editable" id="detailSteamStatus" title="Click to configure Steam integration">—</div>
+              </div>
             </div>
           </div>
 
@@ -184,6 +193,39 @@
         <div style="display:flex; gap:10px; justify-content:flex-end;">
           <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="editExeCancelBtn">Cancel</button>
           <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="editExeSaveBtn">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  <div class="modal-overlay" id="steamModal" style="display: none;">
+    <div class="modal-container" style="width: 500px;">
+      <div class="modal-header">
+        <span id="steamModalTitle">Steam Quest Integration</span>
+        <svg style="cursor:pointer;" id="steamCloseBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </div>
+      <div class="modal-body">
+        <div style="color: var(--text-normal); font-weight: 600; margin-bottom: 8px;">Auto-generate Steam Manifest for Discord</div>
+        <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 14px; line-height: 1.4;">
+          For games detected via Steam (like <b>Marvel Tokon</b>), this writes <code>appmanifest_&lt;id&gt;.acf</code> and installs the dummy executable directly inside your Steam library folder so Discord hooks it for quests.
+        </div>
+        
+        <div style="margin-bottom: 12px;">
+          <label style="font-size:12px; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">Steam App ID</label>
+          <input type="text" class="search-input" id="steamAppIdInput" placeholder="e.g. 3787240" spellcheck="false" />
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="font-size:12px; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">Install Folder Name (inside steamapps/common)</label>
+          <input type="text" class="search-input" id="steamInstallDirInput" placeholder="e.g. MTFS" spellcheck="false" />
+        </div>
+
+        <div style="margin-bottom: 18px;">
+          <label style="font-size:12px; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">Relative Executable Path</label>
+          <input type="text" class="search-input" id="steamExeRelInput" placeholder="e.g. Binaries/Win64/MTFSSteam-Win64-Shipping.exe" spellcheck="false" />
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="steamCancelBtn">Cancel</button>
+          <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="steamConfirmBtn">Install to Steam</button>
         </div>
       </div>
     </div>
