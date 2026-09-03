@@ -496,10 +496,21 @@ function setViewMode(mode) {
   }
 
   appSettings.preferredViewMode = mode;
+  try {
+    localStorage.setItem('preferredViewMode', mode);
+  } catch {}
   if (launcherApi.saveSettings) {
     launcherApi.saveSettings(appSettings).catch(() => {});
   }
 }
+
+// Synchronous instant view restoration before any async calls or network sync
+try {
+  const savedMode = localStorage.getItem('preferredViewMode');
+  if (savedMode === 'grid') {
+    setViewMode('grid');
+  }
+} catch {}
 
 function showHeroDetailsFromGrid() {
   if (gridSection) gridSection.style.display = 'none';
@@ -1403,18 +1414,22 @@ launcherApi.onGameExited((payload = {}) => {
   if (launcherApi.getSettings) {
     try {
       const s = await launcherApi.getSettings();
-      if (s && typeof s === 'object') appSettings = { ...appSettings, ...s };
+      if (s && typeof s === 'object') {
+        appSettings = { ...appSettings, ...s };
+        if (s.preferredViewMode && s.preferredViewMode !== currentViewMode) {
+          setViewMode(s.preferredViewMode);
+        }
+      }
     } catch {}
   }
 
-  await ensureDatabaseSynced();
+  // Load library immediately from disk
   await refreshMyGames();
 
-  if (appSettings.preferredViewMode === 'grid') {
-    setViewMode('grid');
-  } else {
-    setViewMode('list');
-  }
+  // Background sync from Discord API (non-blocking)
+  ensureDatabaseSynced().then(() => {
+    refreshMyGames();
+  }).catch(() => {});
 
   // Update notifications
   if (launcherApi.onUpdateAvailable) {
