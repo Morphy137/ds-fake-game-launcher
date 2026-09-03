@@ -1047,6 +1047,7 @@ ipcMain.handle('launcher/launchGame', async (_evt, game) => {
 
   const { destExePath, workingDirectory } = await ensureFakeExeForGame(game, paths);
 
+  const displayName = String(game?.name || path.basename(destExePath));
   const settings = await readJsonIfExists(paths.settingsPath, DEFAULT_SETTINGS);
   const spawnArgs = [displayName];
   if (settings.minimizeToTray === false) {
