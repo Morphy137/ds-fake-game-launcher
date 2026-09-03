@@ -407,7 +407,6 @@ function renderGridView(filter = '') {
 
       <div class="game-card-info">
         <div class="game-card-title" title="${game.name}">${game.name}</div>
-        <div class="game-card-exe" title="${game.exe || ''}">${game.exe || 'Executable'}</div>
       </div>
     `;
 
