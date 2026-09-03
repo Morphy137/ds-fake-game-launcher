@@ -212,9 +212,22 @@ async function findDummyGameTemplate() {
   }
 
   // Repo-relative fallback (dev): ../src/DummyGame/bin/**/DummyGame.exe
-  const repoRoot = path.resolve(app.getAppPath(), '..', '..');
-  const dummyProjBin = path.join(repoRoot, 'src', 'DummyGame', 'bin');
-  if (!fs.existsSync(dummyProjBin)) return null;
+  const repoRootCandidates = [
+    path.resolve(app.getAppPath(), '..'),
+    path.resolve(__dirname, '..', '..'),
+    path.resolve(app.getAppPath(), '..', '..')
+  ];
+
+  let dummyProjBin = null;
+  for (const root of repoRootCandidates) {
+    const candidate = path.join(root, 'src', 'DummyGame', 'bin');
+    if (fs.existsSync(candidate)) {
+      dummyProjBin = candidate;
+      break;
+    }
+  }
+
+  if (!dummyProjBin) return null;
 
   // Try common locations first (Release, Debug)
   const candidates = [];
