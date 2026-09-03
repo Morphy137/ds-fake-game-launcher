@@ -44,7 +44,6 @@ const updateProgressText = document.getElementById('updateProgressText');
 // Details panel
 const detailAppId = document.getElementById('detailAppId');
 const detailExe = document.getElementById('detailExe');
-const detailFavorite = document.getElementById('detailFavorite');
 const detailRunning = document.getElementById('detailRunning');
 const editExeBtn = document.getElementById('editExeBtn');
 
@@ -262,7 +261,7 @@ function isGameRunning(game) {
 function updateDetailsPanel() {
   const dash = '—';
 
-  if (!detailAppId || !detailExe || !detailFavorite || !detailRunning) return;
+  if (!detailAppId || !detailExe || !detailRunning) return;
 
   if (detailSteamItem) {
     detailSteamItem.style.display = 'none';
@@ -271,14 +270,12 @@ function updateDetailsPanel() {
   if (!selectedGame) {
     detailAppId.textContent = dash;
     detailExe.textContent = dash;
-    detailFavorite.textContent = dash;
     detailRunning.textContent = dash;
     return;
   }
 
   detailAppId.textContent = selectedGame.appId || dash;
   detailExe.textContent = selectedGame.exe || dash;
-  detailFavorite.textContent = selectedGame.isFavorite ? 'Yes' : 'No';
   detailRunning.textContent = isGameRunning(selectedGame) ? 'Yes' : 'No';
 
   const hasSteamOption = Boolean(
@@ -646,7 +643,6 @@ async function selectGame(game) {
   heroContent.style.display = 'flex';
 
   document.getElementById('heroTitle').innerText = game.name;
-  document.getElementById('heroExe').innerText = game.exe;
 
   updateDetailsPanel();
 
