@@ -2,6 +2,8 @@
   "name": "discord-fake-game-launcher-ui",
   "private": true,
   "version": "0.1.0",
+  "description": "Discord Fake Game Launcher for Quest Tracking",
+  "author": "Morphy137",
   "repository": {
     "type": "git",
     "url": "https://github.com/Morphy137/ds-fake-game-launcher.git"
@@ -12,12 +14,13 @@
     "start": "electron .",
     "dev": "electron .",
     "sync:gamelist": "node ./scripts/sync-gamelist.js",
-    "build:dummy": "dotnet build ../src/DummyGame/DummyGame.csproj -c Release",
+    "build:dummy": "dotnet publish ../src/DummyGame/DummyGame.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o ./build-resources/dummygame",
     "build:launcher": "dotnet build ../src/Launcher/Launcher.csproj -c Release",
     "test": "node --test",
-    "dist": "electron-builder --win nsis --publish never",
-    "dist:portable": "electron-builder --win portable --publish never",
-    "dist:publish": "electron-builder --win nsis --publish always"
+    "dist": "npm run build:dummy && electron-builder --win nsis --publish never",
+    "dist:portable": "npm run build:dummy && electron-builder --win portable --publish never",
+    "dist:all": "npm run build:dummy && electron-builder --win nsis portable --publish never",
+    "dist:publish": "npm run build:dummy && electron-builder --win nsis --publish always"
   },
   "devDependencies": {
     "electron": "^30.0.0",
@@ -46,9 +49,10 @@
       }
     ],
     "win": {
-      "icon": "src/assets/app-icon.ico",
+      "icon": "src/assets/app-icon.png",
       "target": [
-        "nsis"
+        "nsis",
+        "portable"
       ]
     },
     "publish": [
