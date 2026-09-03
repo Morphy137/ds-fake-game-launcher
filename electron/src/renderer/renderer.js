@@ -1395,6 +1395,56 @@ if (settingsSaveBtn) {
   });
 }
 
+// Manual Check for Updates
+const btnCheckUpdatesManual = document.getElementById('btnCheckUpdatesManual');
+const updateStatusText = document.getElementById('updateStatusText');
+const appVersionLabel = document.getElementById('appVersionLabel');
+
+if (launcherApi.getAppVersion && appVersionLabel) {
+  launcherApi.getAppVersion().then((ver) => {
+    if (ver) appVersionLabel.textContent = `Version: v${ver}`;
+  }).catch(() => {});
+}
+
+if (btnCheckUpdatesManual) {
+  btnCheckUpdatesManual.addEventListener('click', async () => {
+    btnCheckUpdatesManual.disabled = true;
+    btnCheckUpdatesManual.textContent = 'Checking…';
+    if (updateStatusText) updateStatusText.textContent = 'Checking GitHub Releases…';
+
+    try {
+      const res = await launcherApi.checkForUpdatesManual();
+      if (res.ok) {
+        if (res.updateAvailable) {
+          if (updateStatusText) {
+            updateStatusText.innerHTML = `<span style="color:var(--success); font-weight:600;">Update ${res.latestTag} available!</span>`;
+          }
+          btnCheckUpdatesManual.textContent = 'Download on GitHub';
+          btnCheckUpdatesManual.disabled = false;
+          btnCheckUpdatesManual.onclick = () => {
+            if (launcherApi.openExternal) launcherApi.openExternal(res.releaseUrl);
+          };
+          return;
+        } else {
+          if (updateStatusText) {
+            updateStatusText.innerHTML = `<span style="color:var(--brand); font-weight:600;">You are on the latest version.</span>`;
+          }
+          btnCheckUpdatesManual.textContent = 'Up to Date';
+          btnCheckUpdatesManual.disabled = false;
+        }
+      } else {
+        if (updateStatusText) updateStatusText.textContent = `Status: ${res.error || 'Check completed'}`;
+        btnCheckUpdatesManual.textContent = 'Check for Updates';
+        btnCheckUpdatesManual.disabled = false;
+      }
+    } catch (e) {
+      if (updateStatusText) updateStatusText.textContent = 'Could not reach GitHub.';
+      btnCheckUpdatesManual.textContent = 'Retry';
+      btnCheckUpdatesManual.disabled = false;
+    }
+  });
+}
+
 launcherApi.onGameExited((payload = {}) => {
   const exitedKey = payload && payload.gameKey ? String(payload.gameKey) : '';
   if (!exitedKey) return;

@@ -659,6 +659,47 @@ ipcMain.handle('app/window/close', () => {
   mainWindow?.close();
 });
 
+ipcMain.handle('app/getVersion', () => {
+  return app.getVersion();
+});
+
+ipcMain.handle('system/openExternal', async (_evt, url) => {
+  if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+    await shell.openExternal(url);
+    return { ok: true };
+  }
+  return { ok: false, error: 'Invalid URL' };
+});
+
+ipcMain.handle('app/checkForUpdatesManual', async () => {
+  try {
+    const res = await fetch('https://api.github.com/repos/Morphy137/ds-fake-game-launcher/releases/latest', {
+      headers: { 'User-Agent': 'DiscordFakeGameLauncher' }
+    });
+    if (!res.ok) {
+      if (res.status === 404) {
+        return { ok: true, updateAvailable: false, currentVersion: app.getVersion() };
+      }
+      return { ok: false, error: `GitHub returned status ${res.status}` };
+    }
+    const data = await res.json();
+    const latestTag = String(data.tag_name || '').trim();
+    const cleanTag = latestTag.replace(/^v/, '');
+    const currentVer = app.getVersion();
+    const isNewer = cleanTag && cleanTag !== currentVer;
+
+    return {
+      ok: true,
+      updateAvailable: isNewer,
+      currentVersion: currentVer,
+      latestTag: latestTag || currentVer,
+      releaseUrl: data.html_url || 'https://github.com/Morphy137/ds-fake-game-launcher/releases'
+    };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
 ipcMain.handle('launcher/syncGameList', async () => {
   const paths = getUserDataPaths();
   ensureDirSync(paths.userData);
