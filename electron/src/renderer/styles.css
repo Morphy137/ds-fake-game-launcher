@@ -880,6 +880,8 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .grid-title {
@@ -892,6 +894,36 @@ input:checked + .slider:before {
   font-size: 14px;
   color: var(--text-muted);
   font-weight: 500;
+}
+
+.grid-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.grid-search-wrapper {
+  width: 220px;
+  margin-bottom: 0 !important;
+}
+
+.grid-search-wrapper .search-input {
+  height: 34px;
+  font-size: 13px;
+  padding: 0 12px 0 34px;
+}
+
+.grid-search-wrapper .search-icon {
+  left: 10px;
+}
+
+.grid-btn-add {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .games-grid {

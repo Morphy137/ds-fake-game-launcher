@@ -88,7 +88,9 @@ const settingMinimizeToTray = document.getElementById('settingMinimizeToTray');
 const questTimerBadge = document.getElementById('questTimerBadge');
 const questTimerText = document.getElementById('questTimerText');
 
-// Grid View elements
+// Layout and Grid View elements
+const sidebarEl = document.querySelector('.sidebar');
+const consoleArea = document.getElementById('consoleArea');
 const heroSection = document.getElementById('heroSection');
 const gridSection = document.getElementById('gridSection');
 const mainGamesGrid = document.getElementById('mainGamesGrid');
@@ -97,6 +99,10 @@ const gridEmptyState = document.getElementById('gridEmptyState');
 const btnBackToGrid = document.getElementById('btnBackToGrid');
 const viewModeListBtn = document.getElementById('viewModeListBtn');
 const viewModeGridBtn = document.getElementById('viewModeGridBtn');
+const gridSearchInput = document.getElementById('gridSearchInput');
+const gridOpenAddModalBtn = document.getElementById('gridOpenAddModalBtn');
+const gridToggleListBtn = document.getElementById('gridToggleListBtn');
+const gridToggleGridBtn = document.getElementById('gridToggleGridBtn');
 let currentViewMode = 'list';
 
 let appSettings = {
@@ -466,16 +472,27 @@ function setViewMode(mode) {
   currentViewMode = mode;
   if (viewModeListBtn) viewModeListBtn.classList.toggle('active', mode === 'list');
   if (viewModeGridBtn) viewModeGridBtn.classList.toggle('active', mode === 'grid');
+  if (gridToggleListBtn) gridToggleListBtn.classList.toggle('active', mode === 'list');
+  if (gridToggleGridBtn) gridToggleGridBtn.classList.toggle('active', mode === 'grid');
+
+  const query = searchInput ? searchInput.value : '';
 
   if (mode === 'grid') {
+    if (sidebarEl) sidebarEl.style.display = 'none';
+    if (consoleArea) consoleArea.style.display = 'none';
     if (heroSection) heroSection.style.display = 'none';
     if (gridSection) gridSection.style.display = 'flex';
     if (btnBackToGrid) btnBackToGrid.style.display = 'none';
-    renderGridView(searchInput ? searchInput.value : '');
+    if (gridSearchInput) gridSearchInput.value = query;
+    renderGridView(query);
   } else {
+    if (sidebarEl) sidebarEl.style.display = 'flex';
+    if (consoleArea) consoleArea.style.display = 'flex';
     if (gridSection) gridSection.style.display = 'none';
     if (heroSection) heroSection.style.display = 'flex';
     if (btnBackToGrid) btnBackToGrid.style.display = 'none';
+    if (searchInput) searchInput.value = query;
+    renderMainList(query);
   }
 
   appSettings.preferredViewMode = mode;
@@ -487,6 +504,8 @@ function setViewMode(mode) {
 function showHeroDetailsFromGrid() {
   if (gridSection) gridSection.style.display = 'none';
   if (heroSection) heroSection.style.display = 'flex';
+  if (consoleArea) consoleArea.style.display = 'flex';
+  if (sidebarEl) sidebarEl.style.display = 'none';
   if (btnBackToGrid) btnBackToGrid.style.display = 'inline-flex';
 }
 
@@ -1047,9 +1066,22 @@ document.getElementById('openAddModalBtn').onclick = openModal;
 document.getElementById('closeModalBtn').onclick = closeModal;
 
 searchInput.addEventListener('input', (e) => {
+  if (gridSearchInput) gridSearchInput.value = e.target.value;
   renderMainList(e.target.value);
   renderGridView(e.target.value);
 });
+
+if (gridSearchInput) {
+  gridSearchInput.addEventListener('input', (e) => {
+    if (searchInput) searchInput.value = e.target.value;
+    renderGridView(e.target.value);
+    renderMainList(e.target.value);
+  });
+}
+
+if (gridOpenAddModalBtn) gridOpenAddModalBtn.onclick = openModal;
+if (gridToggleListBtn) gridToggleListBtn.addEventListener('click', () => setViewMode('list'));
+if (gridToggleGridBtn) gridToggleGridBtn.addEventListener('click', () => setViewMode('grid'));
 
 if (viewModeListBtn) viewModeListBtn.addEventListener('click', () => setViewMode('list'));
 if (viewModeGridBtn) viewModeGridBtn.addEventListener('click', () => setViewMode('grid'));

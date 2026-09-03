@@ -114,6 +114,24 @@
       <div class="grid-section" id="gridSection" style="display: none;">
         <div class="grid-header">
           <div class="grid-title">My Library <span class="grid-count" id="gridGameCount">(0)</span></div>
+          <div class="grid-header-actions">
+            <div class="search-wrapper grid-search-wrapper">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" class="search-input" id="gridSearchInput" placeholder="Filter library..." />
+            </div>
+            <button class="btn-add-game grid-btn-add" id="gridOpenAddModalBtn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Add Game
+            </button>
+            <div class="view-mode-toggle" id="gridViewModeToggle">
+              <button class="btn-view-mode" id="gridToggleListBtn" title="List View" aria-label="List View">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              </button>
+              <button class="btn-view-mode active" id="gridToggleGridBtn" title="Grid View" aria-label="Grid View">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              </button>
+            </div>
+          </div>
         </div>
         <div class="games-grid" id="mainGamesGrid"></div>
         <div class="grid-empty-state" id="gridEmptyState" style="display: none;">
@@ -122,7 +140,7 @@
         </div>
       </div>
 
-      <div class="console-area">
+      <div class="console-area" id="consoleArea">
         <div class="console-logs" id="logArea">
           <div class="log-entry"><span class="log-time">[System]</span> Ready.</div>
         </div>
