@@ -894,6 +894,15 @@ if (detailSteamStatus) {
   });
 }
 
+const detailSteamItem = document.getElementById('detailSteamItem');
+if (detailSteamItem) {
+  detailSteamItem.style.cursor = 'pointer';
+  detailSteamItem.addEventListener('click', (e) => {
+    if (e.target.closest('#steamActionBtn') || e.target.closest('#detailSteamStatus')) return;
+    if (selectedGame) openSteamModal(selectedGame);
+  });
+}
+
 // Window controls
 const minBtn = document.getElementById('minBtn');
 const closeBtn = document.getElementById('closeBtn');
