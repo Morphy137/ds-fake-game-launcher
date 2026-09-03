@@ -59,6 +59,31 @@ function formatTrayStatus(runningGamesCount, firstGameName) {
   return `Running: ${count} games`;
 }
 
+function resolveGameCoverUrl(game) {
+  if (!game || typeof game !== 'object') return null;
+
+  // 1. Steam vertical library poster
+  const steamId = String(game.steamAppId || '').trim();
+  if (steamId) {
+    return `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamId}/library_600x900.jpg`;
+  }
+
+  // 2. Discord CDN Cover
+  const appId = String(game.appId || game.id || '').trim();
+  const coverHash = String(game.coverImageHash || game.cover_image_hash || '').trim();
+  if (appId && coverHash) {
+    return `https://cdn.discordapp.com/app-icons/${appId}/${coverHash}.png?size=512`;
+  }
+
+  // 3. Discord CDN Icon
+  const iconHash = String(game.iconHash || game.icon_hash || '').trim();
+  if (appId && iconHash) {
+    return `https://cdn.discordapp.com/app-icons/${appId}/${iconHash}.png?size=256`;
+  }
+
+  return null;
+}
+
 module.exports = {
   makeGameKey,
   isGameRunning,
@@ -66,5 +91,6 @@ module.exports = {
   removeExitedGame,
   formatTimerRemaining,
   calculateTimerProgress,
-  formatTrayStatus
+  formatTrayStatus,
+  resolveGameCoverUrl
 };

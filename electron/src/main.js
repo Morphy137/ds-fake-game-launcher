@@ -14,7 +14,8 @@ const DEFAULT_SETTINGS = {
   questDurationMinutes: 15,
   autoStopOnComplete: true,
   notifyOnComplete: true,
-  minimizeToTray: true
+  minimizeToTray: true,
+  preferredViewMode: 'list'
 };
 
 // In-memory cache to avoid re-reading/parsing large gamelist.json on every search.
@@ -675,6 +676,32 @@ ipcMain.handle('launcher/getMyGames', async () => {
       if (Object.prototype.hasOwnProperty.call(g, 'igdbId')) { delete g.igdbId; changed = true; }
     }
   }
+  // Enrich missing coverImageHash / iconHash / steamAppId from database cache
+  if (databaseCache.loaded && databaseCache.games.length > 0) {
+    for (const g of safeList) {
+      if (g && typeof g === 'object') {
+        const dbEntry = databaseCache.games.find(db => String(db.id) === String(g.appId));
+        if (dbEntry) {
+          if (!g.coverImageHash && dbEntry.cover_image_hash) {
+            g.coverImageHash = dbEntry.cover_image_hash;
+            changed = true;
+          }
+          if (!g.iconHash && dbEntry.icon_hash) {
+            g.iconHash = dbEntry.icon_hash;
+            changed = true;
+          }
+          if (!g.steamAppId) {
+            const steamSku = dbEntry.third_party_skus?.find(sku => sku?.distributor === 'steam');
+            if (steamSku?.id) {
+              g.steamAppId = String(steamSku.id);
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+  }
+
   if (changed) {
     try { await writeJson(paths.myGamesPath, safeList); } catch { /* ignore */ }
   }

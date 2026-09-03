@@ -89,12 +89,24 @@ const settingMinimizeToTray = document.getElementById('settingMinimizeToTray');
 const questTimerBadge = document.getElementById('questTimerBadge');
 const questTimerText = document.getElementById('questTimerText');
 
+// Grid View elements
+const heroSection = document.getElementById('heroSection');
+const gridSection = document.getElementById('gridSection');
+const mainGamesGrid = document.getElementById('mainGamesGrid');
+const gridGameCount = document.getElementById('gridGameCount');
+const gridEmptyState = document.getElementById('gridEmptyState');
+const btnBackToGrid = document.getElementById('btnBackToGrid');
+const viewModeListBtn = document.getElementById('viewModeListBtn');
+const viewModeGridBtn = document.getElementById('viewModeGridBtn');
+let currentViewMode = 'list';
+
 let appSettings = {
   questTimerEnabled: true,
   questDurationMinutes: 15,
   autoStopOnComplete: true,
   notifyOnComplete: true,
-  minimizeToTray: true
+  minimizeToTray: true,
+  preferredViewMode: 'list'
 };
 
 const activeQuestTimers = new Map(); // key -> { startTime, durationMs, game, notified }
@@ -294,7 +306,180 @@ function updateDetailsPanel() {
   }
 }
 
-// No background thumbnails in the public build.
+function resolveGameCover(game) {
+  if (!game) return null;
+  const steamId = String(game.steamAppId || '').trim();
+  if (steamId) {
+    return `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamId}/library_600x900.jpg`;
+  }
+  const appId = String(game.appId || game.id || '').trim();
+  const coverHash = String(game.coverImageHash || game.cover_image_hash || '').trim();
+  if (appId && coverHash) {
+    return `https://cdn.discordapp.com/app-icons/${appId}/${coverHash}.png?size=512`;
+  }
+  const iconHash = String(game.iconHash || game.icon_hash || '').trim();
+  if (appId && iconHash) {
+    return `https://cdn.discordapp.com/app-icons/${appId}/${iconHash}.png?size=256`;
+  }
+  return null;
+}
+
+function getGameInitials(name) {
+  if (!name) return '??';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function renderGridView(filter = '') {
+  if (!mainGamesGrid) return;
+  mainGamesGrid.innerHTML = '';
+
+  const sortedGames = [...myGames].sort((a, b) => {
+    if (a.isFavorite === b.isFavorite) return a.name.localeCompare(b.name);
+    return a.isFavorite ? -1 : 1;
+  });
+
+  const term = filter.toLowerCase();
+  const matchedGames = sortedGames.filter(g => g.name.toLowerCase().includes(term));
+
+  if (gridGameCount) {
+    gridGameCount.textContent = `(${matchedGames.length})`;
+  }
+
+  if (matchedGames.length === 0) {
+    if (gridEmptyState) gridEmptyState.style.display = 'flex';
+    return;
+  }
+
+  if (gridEmptyState) gridEmptyState.style.display = 'none';
+
+  for (const game of matchedGames) {
+    const isRunning = isGameRunning(game);
+    const coverUrl = resolveGameCover(game);
+    const initials = getGameInitials(game.name);
+
+    const card = document.createElement('div');
+    card.className = `game-card ${selectedGame === game ? 'active' : ''} ${isRunning ? 'running' : ''}`;
+
+    const playBtnSvg = isRunning
+      ? `<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>`
+      : `<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+
+    card.innerHTML = `
+      <div class="game-card-poster-wrap">
+        ${isRunning ? `
+          <div class="game-card-badge">
+            <span class="game-card-badge-dot"></span>
+            <span>Playing</span>
+          </div>` : ''}
+
+        <div class="game-card-fav ${game.isFavorite ? 'active' : ''}" title="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+          ${starSvg}
+        </div>
+
+        ${coverUrl ? `
+          <img class="game-card-poster" src="${coverUrl}" alt="${game.name}" loading="lazy" />
+          <div class="game-card-placeholder" style="display: none;">
+            <div class="game-card-initials">${initials}</div>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4;"><rect x="2" y="6" width="20" height="12" rx="3"></rect><circle cx="8" cy="12" r="1.5"></circle><circle cx="16" cy="12" r="1.5"></circle></svg>
+          </div>
+        ` : `
+          <div class="game-card-placeholder">
+            <div class="game-card-initials">${initials}</div>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4;"><rect x="2" y="6" width="20" height="12" rx="3"></rect><circle cx="8" cy="12" r="1.5"></circle><circle cx="16" cy="12" r="1.5"></circle></svg>
+          </div>
+        `}
+
+        <div class="game-card-overlay">
+          <button class="card-btn-play ${isRunning ? 'stop' : ''}" title="${isRunning ? 'Stop Playing' : 'Launch Game'}">
+            ${playBtnSvg}
+          </button>
+        </div>
+      </div>
+
+      <div class="game-card-info">
+        <div class="game-card-title" title="${game.name}">${game.name}</div>
+        <div class="game-card-exe" title="${game.exe || ''}">${game.exe || 'Executable'}</div>
+      </div>
+    `;
+
+    const img = card.querySelector('.game-card-poster');
+    if (img) {
+      img.onerror = () => {
+        img.style.display = 'none';
+        const placeholder = card.querySelector('.game-card-placeholder');
+        if (placeholder) placeholder.style.display = 'flex';
+      };
+    }
+
+    const favBtn = card.querySelector('.game-card-fav');
+    if (favBtn) {
+      favBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await toggleFavorite(game);
+      });
+    }
+
+    const playBtn = card.querySelector('.card-btn-play');
+    if (playBtn) {
+      playBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await selectGame(game);
+        if (launchBtn) launchBtn.click();
+      });
+    }
+
+    card.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      openGameContextMenu(game, e.clientX, e.clientY);
+    });
+
+    card.addEventListener('click', async (e) => {
+      if (e.target.closest('.card-btn-play') || e.target.closest('.game-card-fav')) return;
+      await selectGame(game);
+      showHeroDetailsFromGrid();
+    });
+
+    mainGamesGrid.appendChild(card);
+  }
+}
+
+function setViewMode(mode) {
+  currentViewMode = mode;
+  if (viewModeListBtn) viewModeListBtn.classList.toggle('active', mode === 'list');
+  if (viewModeGridBtn) viewModeGridBtn.classList.toggle('active', mode === 'grid');
+
+  if (mode === 'grid') {
+    if (heroSection) heroSection.style.display = 'none';
+    if (gridSection) gridSection.style.display = 'flex';
+    if (btnBackToGrid) btnBackToGrid.style.display = 'none';
+    renderGridView(searchInput ? searchInput.value : '');
+  } else {
+    if (gridSection) gridSection.style.display = 'none';
+    if (heroSection) heroSection.style.display = 'flex';
+    if (btnBackToGrid) btnBackToGrid.style.display = 'none';
+  }
+
+  appSettings.preferredViewMode = mode;
+  if (launcherApi.saveSettings) {
+    launcherApi.saveSettings(appSettings).catch(() => {});
+  }
+}
+
+function showHeroDetailsFromGrid() {
+  if (gridSection) gridSection.style.display = 'none';
+  if (heroSection) heroSection.style.display = 'flex';
+  if (btnBackToGrid) btnBackToGrid.style.display = 'inline-flex';
+}
+
+function refreshViews() {
+  const query = searchInput ? searchInput.value : '';
+  renderMainList(query);
+  if (currentViewMode === 'grid' || (gridSection && gridSection.style.display !== 'none')) {
+    renderGridView(query);
+  }
+}
 
 function renderMainList(filter = '') {
   gameListEl.innerHTML = '';
@@ -417,7 +602,7 @@ function openGameContextMenu(game, x, y) {
       selectedGame = null;
       heroEmptyState.style.display = 'flex';
       heroContent.style.display = 'none';
-      renderMainList(searchInput.value);
+      refreshViews();
       updateDetailsPanel();
     }
 
@@ -429,7 +614,7 @@ async function toggleFavorite(game) {
   const updated = await launcherApi.toggleFavorite(game.appId, game.exe);
   if (updated) {
     game.isFavorite = updated.isFavorite;
-    renderMainList(searchInput.value);
+    refreshViews();
 
     if (selectedGame && selectedGame.appId === game.appId && selectedGame.exe === game.exe) {
       selectedGame.isFavorite = updated.isFavorite;
@@ -452,7 +637,7 @@ async function selectGame(game) {
   await launcherApi.selectGame(game);
 
   syncSelectedGameLaunchState();
-  renderMainList(searchInput.value);
+  refreshViews();
 }
 
 function openModal() {
@@ -776,7 +961,7 @@ async function renderNextModalPage() {
 
 async function refreshMyGames() {
   myGames = await launcherApi.getMyGames();
-  renderMainList(searchInput.value);
+  refreshViews();
 
   // Empty state by default
   if (!myGames.length) {
@@ -824,7 +1009,7 @@ launchBtn.addEventListener('click', async () => {
           notified: false
         });
       }
-      renderMainList(searchInput.value);
+      refreshViews();
       syncSelectedGameLaunchState();
       log(`Process started: ${selectedGame.exe}`, 'log-success');
     } else {
@@ -836,7 +1021,7 @@ launchBtn.addEventListener('click', async () => {
     activeQuestTimers.delete(selectedKey);
     await launcherApi.stopGame(selectedGame);
     runningGames.delete(selectedKey);
-    renderMainList(searchInput.value);
+    refreshViews();
     syncSelectedGameLaunchState();
     log('Process terminated.', 'log-danger');
   }
@@ -844,7 +1029,16 @@ launchBtn.addEventListener('click', async () => {
 
 document.getElementById('openAddModalBtn').onclick = openModal;
 document.getElementById('closeModalBtn').onclick = closeModal;
-searchInput.addEventListener('input', (e) => renderMainList(e.target.value));
+
+searchInput.addEventListener('input', (e) => {
+  renderMainList(e.target.value);
+  renderGridView(e.target.value);
+});
+
+if (viewModeListBtn) viewModeListBtn.addEventListener('click', () => setViewMode('list'));
+if (viewModeGridBtn) viewModeGridBtn.addEventListener('click', () => setViewMode('grid'));
+if (btnBackToGrid) btnBackToGrid.addEventListener('click', () => setViewMode('grid'));
+
 const onModalSearch = debounce((value) => resetAndRenderModal(value), 200);
 modalSearchInput.addEventListener('input', (e) => onModalSearch(e.target.value));
 
@@ -1148,7 +1342,7 @@ launcherApi.onGameExited((payload = {}) => {
 
   activeQuestTimers.delete(exitedKey);
   runningGames.delete(exitedKey);
-  renderMainList(searchInput.value);
+  refreshViews();
   if (selectedGame && makeGameKey(selectedGame) === exitedKey) {
     syncSelectedGameLaunchState();
     log('Process exited.', 'log-danger');
@@ -1167,7 +1361,12 @@ launcherApi.onGameExited((payload = {}) => {
 
   await ensureDatabaseSynced();
   await refreshMyGames();
-  renderMainList('');
+
+  if (appSettings.preferredViewMode === 'grid') {
+    setViewMode('grid');
+  } else {
+    setViewMode('list');
+  }
 
   // Update notifications
   if (launcherApi.onUpdateAvailable) {

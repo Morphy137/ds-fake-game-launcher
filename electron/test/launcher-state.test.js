@@ -83,3 +83,23 @@ test('formatTrayStatus handles single, multiple, and empty games', () => {
   assert.equal(formatTrayStatus(2), 'Running: 2 games');
   assert.equal(formatTrayStatus(5), 'Running: 5 games');
 });
+
+test('resolveGameCoverUrl resolves Steam, Discord Cover, Discord Icon, and null', () => {
+  const { resolveGameCoverUrl } = require('../src/launcher-state');
+
+  // Steam App ID priority
+  const steamGame = { appId: '123', name: 'Helldivers', steamAppId: '553850', coverImageHash: 'abc', iconHash: 'def' };
+  assert.equal(resolveGameCoverUrl(steamGame), 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/553850/library_600x900.jpg');
+
+  // Discord cover image
+  const discordCoverGame = { appId: '356875221078245376', name: 'Overwatch', coverImageHash: '843a3b07639f068fdacf40b9c3808c46', iconHash: 'a60bb76ba4d4acafbd4cb9aad6e61739' };
+  assert.equal(resolveGameCoverUrl(discordCoverGame), 'https://cdn.discordapp.com/app-icons/356875221078245376/843a3b07639f068fdacf40b9c3808c46.png?size=512');
+
+  // Discord icon only
+  const discordIconGame = { appId: '999', name: 'Game', iconHash: 'xyz' };
+  assert.equal(resolveGameCoverUrl(discordIconGame), 'https://cdn.discordapp.com/app-icons/999/xyz.png?size=256');
+
+  // Fallback null
+  assert.equal(resolveGameCoverUrl({ appId: '999', name: 'NoArt' }), null);
+  assert.equal(resolveGameCoverUrl(null), null);
+});
