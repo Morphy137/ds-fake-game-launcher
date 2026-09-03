@@ -69,8 +69,8 @@ namespace DiscordFakeGameLauncher
         private const string VersionFileName  = "version.txt";
 
         // GitHub repo for auto-updates
-        private const string RepoOwner = "Jeardey";
-        private const string RepoName  = "discord-fake-game-launcher";
+        private const string RepoOwner = "Morphy137";
+        private const string RepoName  = "ds-fake-game-launcher";
 
         // Built-in version (fallback if version.txt not present)
         // Set this to your current release tag (without leading "v")

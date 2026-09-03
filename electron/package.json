@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Jeardey/discord-fake-game-launcher.git"
+    "url": "https://github.com/Morphy137/ds-fake-game-launcher.git"
   },
   "main": "src/main.js",
   "type": "commonjs",
@@ -26,7 +26,7 @@
     "electron-updater": "^6.3.0"
   },
   "build": {
-    "appId": "com.jeardey.discordfakegamelauncher",
+    "appId": "com.morphy137.discordfakegamelauncher",
     "productName": "Discord Fake Game Launcher",
     "files": [
       "src/**"
@@ -52,8 +52,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "Jeardey",
-        "repo": "discord-fake-game-launcher"
+        "owner": "Morphy137",
+        "repo": "ds-fake-game-launcher"
       }
     ],
     "nsis": {
