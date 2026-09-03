@@ -605,6 +605,7 @@ body {
 .quest-timer-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background-color: rgba(88, 101, 242, 0.15);
   border: 1px solid rgba(88, 101, 242, 0.4);
@@ -612,14 +613,29 @@ body {
   padding: 0 16px;
   height: 50px;
   border-radius: var(--radius-md);
-  font-size: 16px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  user-select: none;
   box-sizing: border-box;
   box-shadow: 0 4px 15px rgba(88, 101, 242, 0.2);
   transition: all 0.2s ease;
+  user-select: none;
+}
+
+.quest-timer-badge svg {
+  display: block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.quest-timer-badge span {
+  display: inline-flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateY(1px);
 }
 
 .quest-timer-badge.completed {

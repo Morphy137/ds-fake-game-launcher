@@ -332,7 +332,9 @@ async function ensureFakeExeForGame(game, paths) {
 
   const destExePath = path.join(gameFolder, exeFileName);
 
-  if (!fs.existsSync(destExePath)) {
+  const shouldCopy = !fs.existsSync(destExePath) || (fs.statSync(dummySourceExe).mtimeMs > fs.statSync(destExePath).mtimeMs);
+
+  if (shouldCopy) {
     // Copy main exe but rename to target exe file name
     await fsp.copyFile(dummySourceExe, destExePath);
 
@@ -347,9 +349,7 @@ async function ensureFakeExeForGame(game, paths) {
 
       const src = path.join(sourceDir, fileName);
       const dest = path.join(gameFolder, fileName);
-      if (!fs.existsSync(dest)) {
-        await fsp.copyFile(src, dest);
-      }
+      await fsp.copyFile(src, dest);
     }
   }
 
@@ -445,16 +445,17 @@ function getTrayIcon() {
 function updateTrayMenu() {
   if (!tray) return;
 
-  const runningCount = runningProcesses.size;
+  const runningEntries = Array.from(runningProcesses.entries());
+  const runningCount = runningEntries.length;
+
   let firstGameName = '';
   if (runningCount === 1) {
-    const firstProc = Array.from(runningProcesses.values())[0];
-    firstGameName = firstProc?.game?.name || '';
+    firstGameName = runningEntries[0][1]?.game?.name || '';
   }
 
   const statusLabel = formatTrayStatus(runningCount, firstGameName);
 
-  const contextMenu = Menu.buildFromTemplate([
+  const menuItems = [
     {
       label: 'Open Launcher',
       click: () => {
@@ -464,36 +465,83 @@ function updateTrayMenu() {
         mainWindow.focus();
       }
     },
-    { type: 'separator' },
-    {
-      label: statusLabel,
-      enabled: false
-    },
-    ...(runningCount > 0 ? [
-      {
-        label: 'Stop All Games',
-        click: () => {
-          for (const [gameKey, proc] of [...runningProcesses.entries()]) {
-            try { proc.kill(); } catch {}
-            runningProcesses.delete(gameKey);
-          }
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('launcher/gameExited', {});
-          }
-          updateTrayMenu();
-        }
-      }
-    ] : []),
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      }
-    }
-  ]);
+    { type: 'separator' }
+  ];
 
+  if (runningCount === 0) {
+    menuItems.push({
+      label: 'No games running',
+      enabled: false
+    });
+  } else {
+    for (const [gameKey, proc] of runningEntries) {
+      const gameName = proc?.game?.name || 'Game';
+      menuItems.push({
+        label: `${gameName}`,
+        submenu: [
+          {
+            label: 'Show Window',
+            click: () => {
+              try { proc.stdin?.write('SHOW\n'); } catch {}
+            }
+          },
+          {
+            label: 'Hide Window',
+            click: () => {
+              try { proc.stdin?.write('HIDE\n'); } catch {}
+            }
+          },
+          { type: 'separator' },
+          {
+            label: 'Stop Game',
+            click: () => {
+              try {
+                proc.stdin?.write('QUIT\n');
+                proc.kill();
+              } catch {}
+              runningProcesses.delete(gameKey);
+              updateTrayMenu();
+              mainWindow?.webContents.send('launcher/gameExited', {
+                gameKey,
+                appId: String(proc?.game?.appId || ''),
+                exe: String(proc?.game?.exe || ''),
+                name: String(proc?.game?.name || '')
+              });
+            }
+          }
+        ]
+      });
+    }
+
+    menuItems.push({ type: 'separator' });
+    menuItems.push({
+      label: 'Stop All Games',
+      click: () => {
+        for (const [gameKey, proc] of [...runningProcesses.entries()]) {
+          try {
+            proc.stdin?.write('QUIT\n');
+            proc.kill();
+          } catch {}
+          runningProcesses.delete(gameKey);
+        }
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('launcher/gameExited', {});
+        }
+        updateTrayMenu();
+      }
+    });
+  }
+
+  menuItems.push({ type: 'separator' });
+  menuItems.push({
+    label: 'Quit',
+    click: () => {
+      isQuitting = true;
+      app.quit();
+    }
+  });
+
+  const contextMenu = Menu.buildFromTemplate(menuItems);
   tray.setContextMenu(contextMenu);
   tray.setToolTip(`Discord Fake Game Launcher${runningCount > 0 ? ` (${statusLabel})` : ''}`);
 }
@@ -999,12 +1047,16 @@ ipcMain.handle('launcher/launchGame', async (_evt, game) => {
 
   const { destExePath, workingDirectory } = await ensureFakeExeForGame(game, paths);
 
-  const displayName = String(game?.name || path.basename(destExePath));
+  const settings = await readJsonIfExists(paths.settingsPath, DEFAULT_SETTINGS);
+  const spawnArgs = [displayName];
+  if (settings.minimizeToTray === false) {
+    spawnArgs.push('--no-tray');
+  }
 
-  const proc = spawn(destExePath, [displayName], {
+  const proc = spawn(destExePath, spawnArgs, {
     cwd: workingDirectory,
     windowsHide: false,
-    stdio: 'ignore'
+    stdio: ['pipe', 'ignore', 'ignore']
   });
 
   proc.game = game;
