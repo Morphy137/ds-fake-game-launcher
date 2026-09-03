@@ -514,6 +514,41 @@ ipcMain.handle('launcher/deleteGame', async (_evt, { appId, exe }) => {
   return { ok: true, removed: before - filtered.length };
 });
 
+ipcMain.handle('launcher/updateGameExecutable', async (_evt, { appId, oldExe, newExe }) => {
+  const cleanNewExe = String(newExe || '')
+    .trim()
+    .replace(/[<>:"|?*]/g, '_');
+
+  if (!cleanNewExe) {
+    return { ok: false, error: 'Executable name cannot be empty.' };
+  }
+
+  const finalExe = cleanNewExe.toLowerCase().endsWith('.exe') ? cleanNewExe : `${cleanNewExe}.exe`;
+
+  const oldKey = makeGameKey({ appId, exe: oldExe });
+  if (oldKey && runningProcesses.has(oldKey)) {
+    return { ok: false, error: 'Cannot change executable while the game is running. Please stop the game first.' };
+  }
+
+  const paths = getUserDataPaths();
+  const myGames = await readJsonIfExists(paths.myGamesPath, []);
+  const safeList = Array.isArray(myGames) ? myGames : [];
+
+  const game = safeList.find(g =>
+    String(g?.appId || '') === String(appId || '') &&
+    String(g?.exe || '') === String(oldExe || '')
+  );
+
+  if (!game) {
+    return { ok: false, error: 'Game not found in library.' };
+  }
+
+  game.exe = finalExe;
+  await writeJson(paths.myGamesPath, safeList);
+
+  return { ok: true, updatedGame: game };
+});
+
 ipcMain.handle('launcher/createShortcut', async (_evt, { appId, exe }) => {
   if (process.platform !== 'win32') {
     return { ok: false, error: 'Shortcuts are only supported on Windows.' };

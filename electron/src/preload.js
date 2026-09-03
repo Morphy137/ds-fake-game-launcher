@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('launcherApi', {
   addGame: (game) => ipcRenderer.invoke('launcher/addGame', game),
   toggleFavorite: (appId, exe) => ipcRenderer.invoke('launcher/toggleFavorite', { appId, exe }),
   deleteGame: (appId, exe) => ipcRenderer.invoke('launcher/deleteGame', { appId, exe }),
+  updateGameExecutable: (appId, oldExe, newExe) => ipcRenderer.invoke('launcher/updateGameExecutable', { appId, oldExe, newExe }),
   createShortcut: (appId, exe) => ipcRenderer.invoke('launcher/createShortcut', { appId, exe }),
 
   // Run

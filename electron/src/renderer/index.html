@@ -65,8 +65,13 @@
                 <div class="details-value" id="detailAppId">—</div>
               </div>
               <div class="details-item">
-                <div class="details-label">Executable</div>
-                <div class="details-value" id="detailExe">—</div>
+                <div class="details-label" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>Executable</span>
+                  <button id="editExeBtn" class="btn-edit-icon" title="Edit executable name" aria-label="Edit executable name">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  </button>
+                </div>
+                <div class="details-value editable" id="detailExe" title="Click to edit executable">—</div>
               </div>
               <div class="details-item">
                 <div class="details-label">Favorite</div>
@@ -157,6 +162,28 @@
         <div style="display:flex; gap:10px; justify-content:flex-end;">
           <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="warningCancelBtn">Cancel</button>
           <button class="btn-add-game" style="background-color: #faa61a; color: #fff; border: none;" id="warningConfirmBtn">Add Anyway</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="editExeModal" style="display: none;">
+    <div class="modal-container" style="width: 480px;">
+      <div class="modal-header">
+        <span id="editExeModalTitle">Edit Executable</span>
+        <svg style="cursor:pointer;" id="editExeCloseBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </div>
+      <div class="modal-body">
+        <div style="color: var(--text-normal); font-weight: 600; margin-bottom: 8px;" id="editExeSubtitle">Override process name</div>
+        <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; line-height: 1.4;">
+          Specify the exact executable filename that Discord expects for this game (e.g. <code>MTFSSteam-Win64-Shipping.exe</code>):
+        </div>
+        <div class="search-wrapper" style="margin-bottom: 16px;">
+          <input type="text" class="search-input" id="editExeInput" placeholder="game.exe" spellcheck="false" />
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="editExeCancelBtn">Cancel</button>
+          <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="editExeSaveBtn">Save Changes</button>
         </div>
       </div>
     </div>

@@ -46,6 +46,17 @@ const detailAppId = document.getElementById('detailAppId');
 const detailExe = document.getElementById('detailExe');
 const detailFavorite = document.getElementById('detailFavorite');
 const detailRunning = document.getElementById('detailRunning');
+const editExeBtn = document.getElementById('editExeBtn');
+
+// Edit Executable modal
+const editExeModal = document.getElementById('editExeModal');
+const editExeCloseBtn = document.getElementById('editExeCloseBtn');
+const editExeCancelBtn = document.getElementById('editExeCancelBtn');
+const editExeSaveBtn = document.getElementById('editExeSaveBtn');
+const editExeInput = document.getElementById('editExeInput');
+const editExeSubtitle = document.getElementById('editExeSubtitle');
+let gameBeingEdited = null;
+
 let updateUiState = {
   visible: false,
   installing: false
@@ -180,6 +191,7 @@ function openGameContextMenu(game, x, y) {
   if (!game) return;
 
   contextMenuEl.innerHTML = `
+    <div class="context-menu-item" id="ctxEditExe">Edit executable</div>
     <div class="context-menu-item" id="ctxShortcut">Create shortcut</div>
     <div class="context-menu-item danger" id="ctxDelete">Delete from library</div>
   `;
@@ -206,8 +218,14 @@ function openGameContextMenu(game, x, y) {
     contextMenuEl.style.top = `${top}px`;
   });
 
+  const editExeCtxBtn = document.getElementById('ctxEditExe');
   const shortcutBtn = document.getElementById('ctxShortcut');
   const deleteBtn = document.getElementById('ctxDelete');
+
+  editExeCtxBtn.addEventListener('click', () => {
+    closeContextMenu();
+    openEditExeModal(game);
+  });
 
   shortcutBtn.addEventListener('click', async () => {
     closeContextMenu();
@@ -285,6 +303,36 @@ function openModal() {
 
 function closeModal() {
   addGameModal.style.display = 'none';
+}
+
+function openEditExeModal(game) {
+  if (!game) return;
+  if (isGameRunning(game)) {
+    log(`Stop ${game.name} before editing its executable.`, 'log-danger');
+    return;
+  }
+
+  gameBeingEdited = game;
+  if (editExeSubtitle) {
+    editExeSubtitle.textContent = `Override process name for "${game.name}":`;
+  }
+  if (editExeInput) {
+    editExeInput.value = game.exe || '';
+  }
+  if (editExeModal) {
+    editExeModal.style.display = 'flex';
+  }
+  setTimeout(() => {
+    editExeInput?.focus();
+    editExeInput?.select();
+  }, 50);
+}
+
+function closeEditExeModal() {
+  if (editExeModal) {
+    editExeModal.style.display = 'none';
+  }
+  gameBeingEdited = null;
 }
 
 function showUpdateModal(payload) {
@@ -650,6 +698,69 @@ if (updateInstallBtn) {
       updateRemindBtn.disabled = false;
       updateInstallBtn.textContent = 'Install update';
       if (updateProgressWrap) updateProgressWrap.style.display = 'none';
+    }
+  });
+}
+
+// Edit Executable modal events
+if (editExeCloseBtn) editExeCloseBtn.addEventListener('click', closeEditExeModal);
+if (editExeCancelBtn) editExeCancelBtn.addEventListener('click', closeEditExeModal);
+
+if (editExeSaveBtn) {
+  editExeSaveBtn.addEventListener('click', async () => {
+    if (!gameBeingEdited) return;
+    const newExe = editExeInput ? editExeInput.value.trim() : '';
+    if (!newExe) {
+      log('Executable name cannot be empty.', 'log-danger');
+      return;
+    }
+
+    const oldExe = gameBeingEdited.exe;
+    const targetGame = gameBeingEdited;
+
+    const r = await launcherApi.updateGameExecutable(targetGame.appId, oldExe, newExe);
+    if (!r?.ok) {
+      log(`Failed to update executable: ${r?.error || 'unknown error'}`, 'log-danger');
+      return;
+    }
+
+    targetGame.exe = r.updatedGame.exe;
+    log(`Updated executable for ${targetGame.name} to "${targetGame.exe}".`, 'log-success');
+
+    closeEditExeModal();
+
+    if (selectedGame && String(selectedGame.appId) === String(targetGame.appId)) {
+      selectedGame.exe = targetGame.exe;
+      const heroExeEl = document.getElementById('heroExe');
+      if (heroExeEl) heroExeEl.innerText = targetGame.exe;
+      updateDetailsPanel();
+    }
+
+    renderMainList(searchInput.value);
+  });
+}
+
+if (editExeInput) {
+  editExeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      editExeSaveBtn?.click();
+    } else if (e.key === 'Escape') {
+      closeEditExeModal();
+    }
+  });
+}
+
+if (editExeBtn) {
+  editExeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (selectedGame) openEditExeModal(selectedGame);
+  });
+}
+
+if (detailExe) {
+  detailExe.addEventListener('click', () => {
+    if (selectedGame && !isGameRunning(selectedGame)) {
+      openEditExeModal(selectedGame);
     }
   });
 }

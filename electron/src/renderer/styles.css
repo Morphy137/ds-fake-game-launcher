@@ -323,6 +323,34 @@ body {
   white-space: nowrap;
 }
 
+.details-value.editable {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.details-value.editable:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.btn-edit-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-edit-icon:hover {
+  color: var(--text-header);
+  background: var(--bg-hover);
+}
+
 @media (max-width: 980px) {
   .details-grid { grid-template-columns: 1fr; }
 }
