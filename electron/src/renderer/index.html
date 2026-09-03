@@ -49,16 +49,16 @@
               <div class="game-hero-subtitle" id="heroExe">process_name.exe</div>
             </div>
 
-            <div class="hero-actions-right" style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <div class="hero-actions-right" style="display: flex; flex-direction: row; align-items: center; gap: 12px;">
+              <div class="quest-timer-badge" id="questTimerBadge" style="display: none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span id="questTimerText">Quest: 15:00 remaining</span>
+              </div>
               <button class="btn-main" id="launchBtn">
                 <svg id="playIcon" width="24" height="24" fill="currentColor" style="margin-right: 12px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 <svg id="stopIcon" width="24" height="24" fill="currentColor" style="margin-right: 12px; display: none;"><rect x="6" y="6" width="12" height="12"/></svg>
                 <span id="launchBtnText">Launch Game</span>
               </button>
-              <div class="quest-timer-badge" id="questTimerBadge" style="display: none;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                <span id="questTimerText">Quest: 15:00</span>
-              </div>
             </div>
           </div>
 
@@ -217,26 +217,26 @@
           </div>
         </div>
         
-        <div style="margin-bottom: 12px;">
-          <label style="font-size:12px; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">Steam App ID</label>
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 12px; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 5px;">Steam App ID</label>
           <input type="text" class="search-input" id="steamAppIdInput" placeholder="e.g. 3787240" spellcheck="false" />
         </div>
 
-        <div style="margin-bottom: 12px;">
-          <label style="font-size:12px; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">Install Folder Name (inside steamapps/common)</label>
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 12px; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 5px;">Steam Install Folder <span style="font-weight: 400; opacity: 0.7;">(inside steamapps/common)</span></label>
           <input type="text" class="search-input" id="steamInstallDirInput" placeholder="e.g. MTFS" spellcheck="false" />
         </div>
 
         <div style="margin-bottom: 18px;">
-          <label style="font-size:12px; color:var(--text-muted); font-weight:700; display:block; margin-bottom:4px;">Relative Executable Path</label>
+          <label style="font-size: 12px; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 5px;">Relative Executable Path</label>
           <input type="text" class="search-input" id="steamExeRelInput" placeholder="e.g. Binaries/Win64/MTFSSteam-Win64-Shipping.exe" spellcheck="false" />
         </div>
 
-        <div style="display:flex; gap:10px; justify-content:space-between; align-items:center;">
-          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--danger); color: var(--danger); display: none;" id="steamRemoveBtn">Remove from Steam</button>
-          <div style="display:flex; gap:10px; margin-left:auto;">
-            <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="steamCancelBtn">Cancel</button>
-            <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="steamConfirmBtn">Install to Steam</button>
+        <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 20px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+          <button id="steamRemoveBtn" style="display: none; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid var(--danger); background: transparent; color: var(--danger); cursor: pointer; white-space: nowrap;">Remove from Steam</button>
+          <div style="display: flex; gap: 10px; margin-left: auto; align-items: center;">
+            <button id="steamCancelBtn" style="height: 38px; padding: 0 18px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.15); background: transparent; color: var(--text-normal); cursor: pointer; white-space: nowrap;">Cancel</button>
+            <button id="steamConfirmBtn" style="height: 38px; padding: 0 20px; font-size: 13px; font-weight: 600; border-radius: 6px; border: none; background-color: var(--brand); color: #ffffff; cursor: pointer; white-space: nowrap;">Install to Steam</button>
           </div>
         </div>
       </div>

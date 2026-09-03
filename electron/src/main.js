@@ -718,51 +718,59 @@ ipcMain.handle('launcher/setupSteamIntegration', async (_evt, { appId, steamAppI
 });
 
 ipcMain.handle('launcher/removeSteamIntegration', async (_evt, { appId, steamAppId, installDir }) => {
-  const steamPath = getSteamPath();
-  if (!steamPath) {
-    return { ok: false, error: 'Steam installation path not found.' };
-  }
-
-  const paths = getUserDataPaths();
-  const myGames = await readJsonIfExists(paths.myGamesPath, []);
-  const safeList = Array.isArray(myGames) ? myGames : [];
-
-  const game = safeList.find(g => String(g?.appId || '') === String(appId || ''));
-  const effectiveSteamAppId = String(steamAppId || game?.steamAppId || '').trim();
-  const effectiveInstallDir = String(installDir || game?.installDir || '').trim();
-
-  let removedManifest = false;
-  let removedFolder = false;
-
-  const steamAppsDir = path.join(steamPath, 'steamapps');
-
-  if (effectiveSteamAppId) {
-    const acfPath = path.join(steamAppsDir, `appmanifest_${effectiveSteamAppId}.acf`);
-    if (fs.existsSync(acfPath)) {
-      try {
-        await fsp.unlink(acfPath);
-        removedManifest = true;
-      } catch {}
+  try {
+    const steamPath = getSteamPath();
+    if (!steamPath) {
+      return { ok: false, error: 'Steam installation path not found.' };
     }
-  }
 
-  if (effectiveInstallDir) {
-    const commonDir = path.join(steamAppsDir, 'common', effectiveInstallDir);
-    if (fs.existsSync(commonDir)) {
-      try {
-        await fsp.rm(commonDir, { recursive: true, force: true });
-        removedFolder = true;
-      } catch {}
+    const paths = getUserDataPaths();
+    const myGames = await readJsonIfExists(paths.myGamesPath, []);
+    const safeList = Array.isArray(myGames) ? myGames : [];
+
+    const game = safeList.find(g => String(g?.appId || '') === String(appId || ''));
+    const effectiveSteamAppId = String(steamAppId || game?.steamAppId || '').trim();
+    const effectiveInstallDir = String(installDir || game?.installDir || '').trim();
+
+    let removedManifest = false;
+    let removedFolder = false;
+
+    const steamAppsDir = path.join(steamPath, 'steamapps');
+
+    if (effectiveSteamAppId) {
+      const acfPath = path.join(steamAppsDir, `appmanifest_${effectiveSteamAppId}.acf`);
+      if (fs.existsSync(acfPath)) {
+        try {
+          await fsp.unlink(acfPath);
+          removedManifest = true;
+        } catch (e) {
+          console.error('Failed to unlink ACF:', e);
+        }
+      }
     }
-  }
 
-  if (game) {
-    game.useSteamPath = false;
-    delete game.steamExePath;
-    await writeJson(paths.myGamesPath, safeList);
-  }
+    if (effectiveInstallDir) {
+      const commonDir = path.join(steamAppsDir, 'common', effectiveInstallDir);
+      if (fs.existsSync(commonDir)) {
+        try {
+          await fsp.rm(commonDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+          removedFolder = true;
+        } catch (e) {
+          console.error('Failed to rm commonDir:', e);
+        }
+      }
+    }
 
-  return { ok: true, removedManifest, removedFolder, updatedGame: game };
+    if (game) {
+      game.useSteamPath = false;
+      delete game.steamExePath;
+      await writeJson(paths.myGamesPath, safeList);
+    }
+
+    return { ok: true, removedManifest, removedFolder, updatedGame: game };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err || 'Failed to remove Steam integration') };
+  }
 });
 
 ipcMain.handle('settings/get', async () => {

@@ -514,10 +514,10 @@ function openSteamModal(game) {
   if (steamExeRelInput) steamExeRelInput.value = defaultExeRel;
 
   if (steamRemoveBtn) {
-    steamRemoveBtn.style.display = game.useSteamPath ? 'block' : 'none';
+    steamRemoveBtn.style.display = game.useSteamPath ? 'inline-block' : 'none';
   }
   if (steamConfirmBtn) {
-    steamConfirmBtn.textContent = game.useSteamPath ? 'Update Steam Manifest' : 'Install to Steam';
+    steamConfirmBtn.textContent = game.useSteamPath ? 'Update Manifest' : 'Install to Steam';
   }
 
   if (steamModal) steamModal.style.display = 'flex';
@@ -984,72 +984,108 @@ if (steamConfirmBtn) {
       return;
     }
 
-    log(`Configuring Steam manifest for ${gameForSteamSetup.name} (AppID: ${steamAppId})...`);
-    const r = await launcherApi.setupSteamIntegration({
-      appId: gameForSteamSetup.appId,
-      steamAppId,
-      installDir,
-      exe
-    });
+    try {
+      steamConfirmBtn.disabled = true;
+      steamConfirmBtn.textContent = 'Installing...';
+      log(`Configuring Steam manifest for ${gameForSteamSetup.name} (AppID: ${steamAppId})...`);
 
-    if (!r?.ok) {
-      log(`Steam setup failed: ${r?.error || 'unknown error'}`, 'log-danger');
-      return;
+      const r = await launcherApi.setupSteamIntegration({
+        appId: gameForSteamSetup.appId,
+        steamAppId,
+        installDir,
+        exe
+      });
+
+      if (!r?.ok) {
+        log(`Steam setup failed: ${r?.error || 'unknown error'}`, 'log-danger');
+        return;
+      }
+
+      gameForSteamSetup.useSteamPath = true;
+      gameForSteamSetup.steamAppId = steamAppId;
+      gameForSteamSetup.installDir = installDir;
+      gameForSteamSetup.exe = exe;
+      gameForSteamSetup.steamExePath = r.destExePath;
+
+      for (const g of myGames) {
+        if (String(g?.appId) === String(gameForSteamSetup.appId)) {
+          g.useSteamPath = true;
+          g.steamAppId = steamAppId;
+          g.installDir = installDir;
+          g.exe = exe;
+          g.steamExePath = r.destExePath;
+        }
+      }
+
+      if (selectedGame && String(selectedGame.appId) === String(gameForSteamSetup.appId)) {
+        selectedGame.useSteamPath = true;
+        selectedGame.steamAppId = steamAppId;
+        selectedGame.installDir = installDir;
+        selectedGame.exe = exe;
+        selectedGame.steamExePath = r.destExePath;
+        const heroExeEl = document.getElementById('heroExe');
+        if (heroExeEl) heroExeEl.innerText = exe;
+        updateDetailsPanel();
+      }
+
+      closeSteamModal();
+      log(`Steam manifest and dummy successfully installed in Steam library!`, 'log-success');
+      log(`Important: Restart Steam and Discord if the game is not immediately detected.`, 'log-entry');
+      renderMainList(searchInput.value);
+    } catch (err) {
+      log(`Steam setup error: ${err?.message || err}`, 'log-danger');
+    } finally {
+      steamConfirmBtn.disabled = false;
+      steamConfirmBtn.textContent = gameForSteamSetup?.useSteamPath ? 'Update Manifest' : 'Install to Steam';
     }
-
-    gameForSteamSetup.useSteamPath = true;
-    gameForSteamSetup.steamAppId = steamAppId;
-    gameForSteamSetup.installDir = installDir;
-    gameForSteamSetup.exe = exe;
-    gameForSteamSetup.steamExePath = r.destExePath;
-
-    closeSteamModal();
-    log(`Steam manifest and dummy successfully installed in Steam library!`, 'log-success');
-    log(`Important: Restart Steam and Discord if the game is not immediately detected.`, 'log-entry');
-
-    if (selectedGame && String(selectedGame.appId) === String(gameForSteamSetup.appId)) {
-      selectedGame.useSteamPath = true;
-      selectedGame.steamAppId = steamAppId;
-      selectedGame.installDir = installDir;
-      selectedGame.exe = exe;
-      selectedGame.steamExePath = r.destExePath;
-      const heroExeEl = document.getElementById('heroExe');
-      if (heroExeEl) heroExeEl.innerText = exe;
-      updateDetailsPanel();
-    }
-
-    renderMainList(searchInput.value);
   });
 }
 
 if (steamRemoveBtn) {
   steamRemoveBtn.addEventListener('click', async () => {
     if (!gameForSteamSetup) return;
-    log(`Removing Steam manifest and dummy for ${gameForSteamSetup.name}...`);
-    const r = await launcherApi.removeSteamIntegration({
-      appId: gameForSteamSetup.appId,
-      steamAppId: gameForSteamSetup.steamAppId,
-      installDir: gameForSteamSetup.installDir
-    });
+    try {
+      steamRemoveBtn.disabled = true;
+      steamRemoveBtn.textContent = 'Removing...';
+      log(`Removing Steam manifest and dummy for ${gameForSteamSetup.name}...`);
 
-    if (!r?.ok) {
-      log(`Failed to remove from Steam: ${r?.error || 'unknown error'}`, 'log-danger');
-      return;
+      const r = await launcherApi.removeSteamIntegration({
+        appId: gameForSteamSetup.appId,
+        steamAppId: gameForSteamSetup.steamAppId,
+        installDir: gameForSteamSetup.installDir
+      });
+
+      if (!r?.ok) {
+        log(`Failed to remove from Steam: ${r?.error || 'unknown error'}`, 'log-danger');
+        return;
+      }
+
+      gameForSteamSetup.useSteamPath = false;
+      delete gameForSteamSetup.steamExePath;
+
+      for (const g of myGames) {
+        if (String(g?.appId) === String(gameForSteamSetup.appId)) {
+          g.useSteamPath = false;
+          delete g.steamExePath;
+        }
+      }
+
+      if (selectedGame && String(selectedGame.appId) === String(gameForSteamSetup.appId)) {
+        selectedGame.useSteamPath = false;
+        delete selectedGame.steamExePath;
+        updateDetailsPanel();
+      }
+
+      closeSteamModal();
+      log(`Successfully removed ${gameForSteamSetup.name} from Steam library.`, 'log-success');
+      log(`Restart Steam to refresh your Steam library list.`, 'log-entry');
+      renderMainList(searchInput.value);
+    } catch (err) {
+      log(`Error removing from Steam: ${err?.message || err}`, 'log-danger');
+    } finally {
+      steamRemoveBtn.disabled = false;
+      steamRemoveBtn.textContent = 'Remove from Steam';
     }
-
-    gameForSteamSetup.useSteamPath = false;
-    delete gameForSteamSetup.steamExePath;
-
-    closeSteamModal();
-    log(`Removed ${gameForSteamSetup.name} from Steam library.`, 'log-success');
-
-    if (selectedGame && String(selectedGame.appId) === String(gameForSteamSetup.appId)) {
-      selectedGame.useSteamPath = false;
-      delete selectedGame.steamExePath;
-      updateDetailsPanel();
-    }
-
-    renderMainList(searchInput.value);
   });
 }
 
