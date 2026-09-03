@@ -75,6 +75,35 @@ let updateUiState = {
   installing: false
 };
 
+// Settings & Quest Timer
+const settingsModal = document.getElementById('settingsModal');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+const settingsCancelBtn = document.getElementById('settingsCancelBtn');
+const settingsSaveBtn = document.getElementById('settingsSaveBtn');
+const settingQuestTimerEnabled = document.getElementById('settingQuestTimerEnabled');
+const settingQuestDuration = document.getElementById('settingQuestDuration');
+const settingAutoStop = document.getElementById('settingAutoStop');
+const settingNotify = document.getElementById('settingNotify');
+const questTimerBadge = document.getElementById('questTimerBadge');
+const questTimerText = document.getElementById('questTimerText');
+
+let appSettings = {
+  questTimerEnabled: true,
+  questDurationMinutes: 15,
+  autoStopOnComplete: true,
+  notifyOnComplete: true
+};
+
+const activeQuestTimers = new Map(); // key -> { startTime, durationMs, game, notified }
+
+function formatTimerRemaining(remainingMs) {
+  const totalSeconds = Math.max(0, Math.floor((remainingMs || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
 function log(msg, type = '') {
   const div = document.createElement('div');
   div.className = `log-entry ${type}`;
@@ -94,6 +123,8 @@ function resetHeroState() {
   document.getElementById('launchBtnText').innerText = 'Launch Game';
   document.getElementById('playIcon').style.display = 'block';
   document.getElementById('stopIcon').style.display = 'none';
+
+  if (questTimerBadge) questTimerBadge.style.display = 'none';
 
   updateDetailsPanel();
 }
@@ -120,7 +151,85 @@ function syncSelectedGameLaunchState() {
   document.getElementById('playIcon').style.display = 'none';
   document.getElementById('stopIcon').style.display = 'block';
 
+  updateQuestTimerDisplay();
   updateDetailsPanel();
+}
+
+function updateQuestTimerDisplay() {
+  if (!questTimerBadge || !questTimerText) return;
+
+  if (!selectedGame || !isGameRunning(selectedGame) || !appSettings.questTimerEnabled) {
+    questTimerBadge.style.display = 'none';
+    return;
+  }
+
+  const key = makeGameKey(selectedGame);
+  const timer = activeQuestTimers.get(key);
+  if (!timer) {
+    questTimerBadge.style.display = 'none';
+    return;
+  }
+
+  const remaining = Math.max(0, timer.durationMs - (Date.now() - timer.startTime));
+  questTimerBadge.style.display = 'inline-flex';
+
+  if (remaining > 0) {
+    questTimerBadge.classList.remove('completed');
+    questTimerText.textContent = `Quest: ${formatTimerRemaining(remaining)} remaining`;
+  } else {
+    questTimerBadge.classList.add('completed');
+    questTimerText.textContent = `Quest Complete (${appSettings.questDurationMinutes}m+)`;
+  }
+}
+
+// Tick quest timers every second
+setInterval(() => {
+  if (!appSettings.questTimerEnabled && activeQuestTimers.size === 0) return;
+
+  const now = Date.now();
+  for (const [key, timer] of Array.from(activeQuestTimers.entries())) {
+    const elapsed = now - timer.startTime;
+    const remaining = Math.max(0, timer.durationMs - elapsed);
+
+    if (remaining <= 0) {
+      if (appSettings.autoStopOnComplete) {
+        log(`[Quest Timer] ${timer.game.name} completed ${appSettings.questDurationMinutes}m quest. Auto-stopping process...`, 'log-success');
+        if (appSettings.notifyOnComplete && launcherApi.sendNotification) {
+          launcherApi.sendNotification({
+            title: 'Discord Quest Complete!',
+            body: `${timer.game.name} has finished the ${appSettings.questDurationMinutes}-minute quest and was closed.`
+          });
+        }
+        activeQuestTimers.delete(key);
+        launcherApi.stopGame(timer.game);
+      } else {
+        if (!timer.notified) {
+          timer.notified = true;
+          log(`[Quest Timer] ${timer.game.name} reached ${appSettings.questDurationMinutes}m quest playtime goal!`, 'log-success');
+          if (appSettings.notifyOnComplete && launcherApi.sendNotification) {
+            launcherApi.sendNotification({
+              title: 'Discord Quest Complete!',
+              body: `${timer.game.name} has reached ${appSettings.questDurationMinutes} minutes of playtime.`
+            });
+          }
+        }
+      }
+    }
+  }
+
+  updateQuestTimerDisplay();
+}, 1000);
+
+function openSettingsModal() {
+  if (settingQuestTimerEnabled) settingQuestTimerEnabled.checked = Boolean(appSettings.questTimerEnabled);
+  if (settingQuestDuration) settingQuestDuration.value = String(appSettings.questDurationMinutes || 15);
+  if (settingAutoStop) settingAutoStop.checked = Boolean(appSettings.autoStopOnComplete);
+  if (settingNotify) settingNotify.checked = Boolean(appSettings.notifyOnComplete);
+  if (settingsModal) settingsModal.style.display = 'flex';
+}
+
+function closeSettingsModal() {
+  if (settingsModal) settingsModal.style.display = 'none';
 }
 
 function makeGameKey(game) {
@@ -703,6 +812,15 @@ launchBtn.addEventListener('click', async () => {
     const r = await launcherApi.launchGame(selectedGame);
     if (r.ok) {
       runningGames.add(selectedKey);
+      if (appSettings.questTimerEnabled) {
+        const durationMs = (appSettings.questDurationMinutes || 15) * 60 * 1000;
+        activeQuestTimers.set(selectedKey, {
+          startTime: Date.now(),
+          durationMs,
+          game: selectedGame,
+          notified: false
+        });
+      }
       renderMainList(searchInput.value);
       syncSelectedGameLaunchState();
       log(`Process started: ${selectedGame.exe}`, 'log-success');
@@ -712,6 +830,7 @@ launchBtn.addEventListener('click', async () => {
       resetHeroState();
     }
   } else {
+    activeQuestTimers.delete(selectedKey);
     await launcherApi.stopGame(selectedGame);
     runningGames.delete(selectedKey);
     renderMainList(searchInput.value);
@@ -962,20 +1081,50 @@ const closeBtn = document.getElementById('closeBtn');
 minBtn.addEventListener('click', () => launcherApi.minimize());
 closeBtn.addEventListener('click', () => launcherApi.close());
 
+if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
+if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsModal);
+if (settingsCancelBtn) settingsCancelBtn.addEventListener('click', closeSettingsModal);
+
+if (settingsSaveBtn) {
+  settingsSaveBtn.addEventListener('click', async () => {
+    appSettings = {
+      questTimerEnabled: settingQuestTimerEnabled ? settingQuestTimerEnabled.checked : true,
+      questDurationMinutes: settingQuestDuration ? parseInt(settingQuestDuration.value, 10) || 15 : 15,
+      autoStopOnComplete: settingAutoStop ? settingAutoStop.checked : true,
+      notifyOnComplete: settingNotify ? settingNotify.checked : true
+    };
+    if (launcherApi.saveSettings) {
+      await launcherApi.saveSettings(appSettings);
+    }
+    closeSettingsModal();
+    log('Settings updated.', 'log-success');
+    updateQuestTimerDisplay();
+  });
+}
+
 launcherApi.onGameExited((payload = {}) => {
   const exitedKey = payload && payload.gameKey ? String(payload.gameKey) : '';
   if (!exitedKey) return;
 
+  activeQuestTimers.delete(exitedKey);
   runningGames.delete(exitedKey);
   renderMainList(searchInput.value);
   if (selectedGame && makeGameKey(selectedGame) === exitedKey) {
     syncSelectedGameLaunchState();
     log('Process exited.', 'log-danger');
   }
+  updateQuestTimerDisplay();
   updateDetailsPanel();
 });
 
 (async function init() {
+  if (launcherApi.getSettings) {
+    try {
+      const s = await launcherApi.getSettings();
+      if (s && typeof s === 'object') appSettings = { ...appSettings, ...s };
+    } catch {}
+  }
+
   await ensureDatabaseSynced();
   await refreshMyGames();
   renderMainList('');

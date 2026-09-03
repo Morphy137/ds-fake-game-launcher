@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -8,6 +8,13 @@ const { spawn } = require('child_process');
 const { makeGameKey } = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
+
+const DEFAULT_SETTINGS = {
+  questTimerEnabled: true,
+  questDurationMinutes: 15,
+  autoStopOnComplete: true,
+  notifyOnComplete: true
+};
 
 // In-memory cache to avoid re-reading/parsing large gamelist.json on every search.
 let databaseCache = {
@@ -26,7 +33,8 @@ function getUserDataPaths() {
     userData,
     myGamesPath: path.join(userData, 'myGames.json'),
     gameListPath: path.join(userData, 'gamelist.json'),
-    gamesRoot: path.join(userData, 'games')
+    gamesRoot: path.join(userData, 'games'),
+    settingsPath: path.join(userData, 'settings.json')
   };
 }
 
@@ -755,6 +763,40 @@ ipcMain.handle('launcher/removeSteamIntegration', async (_evt, { appId, steamApp
   }
 
   return { ok: true, removedManifest, removedFolder, updatedGame: game };
+});
+
+ipcMain.handle('settings/get', async () => {
+  const paths = getUserDataPaths();
+  const loaded = await readJsonIfExists(paths.settingsPath, DEFAULT_SETTINGS);
+  return { ...DEFAULT_SETTINGS, ...(loaded && typeof loaded === 'object' ? loaded : {}) };
+});
+
+ipcMain.handle('settings/set', async (_evt, newSettings) => {
+  const paths = getUserDataPaths();
+  const current = await readJsonIfExists(paths.settingsPath, DEFAULT_SETTINGS);
+  const updated = {
+    ...DEFAULT_SETTINGS,
+    ...(current && typeof current === 'object' ? current : {}),
+    ...(newSettings && typeof newSettings === 'object' ? newSettings : {})
+  };
+  await writeJson(paths.settingsPath, updated);
+  return updated;
+});
+
+ipcMain.handle('system/sendNotification', async (_evt, { title, body }) => {
+  try {
+    if (Notification.isSupported()) {
+      const n = new Notification({
+        title: String(title || 'Discord Quest Complete'),
+        body: String(body || '')
+      });
+      n.show();
+      return { ok: true };
+    }
+    return { ok: false, error: 'Notifications not supported' };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
 });
 
 ipcMain.handle('launcher/createShortcut', async (_evt, { appId, exe }) => {

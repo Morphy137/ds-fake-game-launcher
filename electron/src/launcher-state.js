@@ -33,9 +33,26 @@ function removeExitedGame(runningGames, game) {
   return next;
 }
 
+function formatTimerRemaining(remainingMs) {
+  const totalSeconds = Math.max(0, Math.floor((remainingMs || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function calculateTimerProgress(startTime, durationMs, now = Date.now()) {
+  const elapsed = Math.max(0, now - (startTime || now));
+  const remaining = Math.max(0, (durationMs || 0) - elapsed);
+  const isComplete = remaining <= 0;
+  const percent = durationMs > 0 ? Math.min(100, Math.max(0, (elapsed / durationMs) * 100)) : 100;
+  return { elapsed, remaining, isComplete, percent };
+}
+
 module.exports = {
   makeGameKey,
   isGameRunning,
   syncRunningGameSet,
-  removeExitedGame
+  removeExitedGame,
+  formatTimerRemaining,
+  calculateTimerProgress
 };

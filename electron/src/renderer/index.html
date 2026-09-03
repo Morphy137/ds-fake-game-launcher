@@ -10,6 +10,7 @@
   <div class="title-bar">
     <div>Fake Game Launcher</div>
     <div class="window-controls">
+      <button class="win-btn" id="settingsBtn" title="Settings" aria-label="Settings">⚙</button>
       <button class="win-btn" id="minBtn" aria-label="Minimize">—</button>
       <button class="win-btn close" id="closeBtn" aria-label="Close">✕</button>
     </div>
@@ -48,12 +49,16 @@
               <div class="game-hero-subtitle" id="heroExe">process_name.exe</div>
             </div>
 
-            <div class="hero-actions-right">
+            <div class="hero-actions-right" style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
               <button class="btn-main" id="launchBtn">
                 <svg id="playIcon" width="24" height="24" fill="currentColor" style="margin-right: 12px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 <svg id="stopIcon" width="24" height="24" fill="currentColor" style="margin-right: 12px; display: none;"><rect x="6" y="6" width="12" height="12"/></svg>
                 <span id="launchBtnText">Launch Game</span>
               </button>
+              <div class="quest-timer-badge" id="questTimerBadge" style="display: none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span id="questTimerText">Quest: 15:00</span>
+              </div>
             </div>
           </div>
 
@@ -233,6 +238,71 @@
             <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="steamCancelBtn">Cancel</button>
             <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="steamConfirmBtn">Install to Steam</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settingsModal" style="display: none;">
+    <div class="modal-container" style="width: 500px;">
+      <div class="modal-header">
+        <span>Settings</span>
+        <svg style="cursor:pointer;" id="settingsCloseBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <div class="settings-section-title">Discord Quest Automation</div>
+          
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Quest Countdown Timer</div>
+              <div class="settings-row-desc">Show an active countdown badge on running games.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="settingQuestTimerEnabled" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Quest Target Duration</div>
+              <div class="settings-row-desc">Discord quests typically require 15 minutes of playtime.</div>
+            </div>
+            <select id="settingQuestDuration" class="search-input" style="width: auto; padding: 6px 12px; height: auto;">
+              <option value="10">10 minutes</option>
+              <option value="15" selected>15 minutes (Standard)</option>
+              <option value="20">20 minutes</option>
+              <option value="30">30 minutes</option>
+            </select>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Auto-Stop on Complete</div>
+              <div class="settings-row-desc">Automatically close the dummy game when timer reaches 0.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="settingAutoStop" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Windows Desktop Notification</div>
+              <div class="settings-row-desc">Show a native notification when the quest goal is completed.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="settingNotify" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top: 16px;">
+          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="settingsCancelBtn">Cancel</button>
+          <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="settingsSaveBtn">Save Settings</button>
         </div>
       </div>
     </div>

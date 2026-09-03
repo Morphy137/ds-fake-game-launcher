@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('launcherApi', {
   removeSteamIntegration: (params) => ipcRenderer.invoke('launcher/removeSteamIntegration', params),
   createShortcut: (appId, exe) => ipcRenderer.invoke('launcher/createShortcut', { appId, exe }),
 
+  // Settings & System
+  getSettings: () => ipcRenderer.invoke('settings/get'),
+  saveSettings: (settings) => ipcRenderer.invoke('settings/set', settings),
+  sendNotification: (payload) => ipcRenderer.invoke('system/sendNotification', payload),
+
   // Run
   selectGame: (game) => ipcRenderer.invoke('launcher/selectGame', game),
   launchGame: (game) => ipcRenderer.invoke('launcher/launchGame', game),

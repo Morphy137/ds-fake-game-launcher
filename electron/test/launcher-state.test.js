@@ -42,3 +42,34 @@ test('executable name sanitization and formatting', () => {
   assert.equal(sanitize('game:name?.exe'), 'game_name_.exe');
   assert.equal(sanitize(''), '');
 });
+
+test('formatTimerRemaining formats mm:ss properly', () => {
+  const { formatTimerRemaining } = require('../src/launcher-state');
+  assert.equal(formatTimerRemaining(15 * 60 * 1000), '15:00');
+  assert.equal(formatTimerRemaining(14 * 60 * 1000 + 42 * 1000), '14:42');
+  assert.equal(formatTimerRemaining(5 * 1000), '00:05');
+  assert.equal(formatTimerRemaining(0), '00:00');
+  assert.equal(formatTimerRemaining(-5000), '00:00');
+});
+
+test('calculateTimerProgress calculates progress, remaining, and completion', () => {
+  const { calculateTimerProgress } = require('../src/launcher-state');
+  const duration = 15 * 60 * 1000;
+  const start = 1000000;
+
+  const atStart = calculateTimerProgress(start, duration, start);
+  assert.equal(atStart.elapsed, 0);
+  assert.equal(atStart.remaining, duration);
+  assert.equal(atStart.isComplete, false);
+  assert.equal(atStart.percent, 0);
+
+  const halfWay = calculateTimerProgress(start, duration, start + (duration / 2));
+  assert.equal(halfWay.remaining, duration / 2);
+  assert.equal(halfWay.isComplete, false);
+  assert.equal(halfWay.percent, 50);
+
+  const finished = calculateTimerProgress(start, duration, start + duration + 5000);
+  assert.equal(finished.remaining, 0);
+  assert.equal(finished.isComplete, true);
+  assert.equal(finished.percent, 100);
+});
