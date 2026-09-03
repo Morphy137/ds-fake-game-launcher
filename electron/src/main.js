@@ -555,6 +555,24 @@ ipcMain.handle('launcher/deleteGame', async (_evt, { appId, exe }) => {
   const myGames = await readJsonIfExists(paths.myGamesPath, []);
   const safeList = Array.isArray(myGames) ? myGames : [];
 
+  const gameToDelete = safeList.find(g =>
+    String(g?.appId || '') === String(appId || '') &&
+    String(g?.exe || '') === String(exe || '')
+  );
+
+  if (gameToDelete?.useSteamPath && gameToDelete?.steamAppId) {
+    const steamPath = getSteamPath();
+    if (steamPath) {
+      const steamAppsDir = path.join(steamPath, 'steamapps');
+      const acf = path.join(steamAppsDir, `appmanifest_${gameToDelete.steamAppId}.acf`);
+      if (fs.existsSync(acf)) { try { await fsp.unlink(acf); } catch {} }
+      if (gameToDelete.installDir) {
+        const commonDir = path.join(steamAppsDir, 'common', gameToDelete.installDir);
+        if (fs.existsSync(commonDir)) { try { await fsp.rm(commonDir, { recursive: true, force: true }); } catch {} }
+      }
+    }
+  }
+
   const before = safeList.length;
   const filtered = safeList.filter(g => !(
     String(g?.appId || '') === String(appId || '') &&
@@ -689,6 +707,54 @@ ipcMain.handle('launcher/setupSteamIntegration', async (_evt, { appId, steamAppI
   } catch (e) {
     return { ok: false, error: String(e?.message || e || 'Failed to setup Steam manifest') };
   }
+});
+
+ipcMain.handle('launcher/removeSteamIntegration', async (_evt, { appId, steamAppId, installDir }) => {
+  const steamPath = getSteamPath();
+  if (!steamPath) {
+    return { ok: false, error: 'Steam installation path not found.' };
+  }
+
+  const paths = getUserDataPaths();
+  const myGames = await readJsonIfExists(paths.myGamesPath, []);
+  const safeList = Array.isArray(myGames) ? myGames : [];
+
+  const game = safeList.find(g => String(g?.appId || '') === String(appId || ''));
+  const effectiveSteamAppId = String(steamAppId || game?.steamAppId || '').trim();
+  const effectiveInstallDir = String(installDir || game?.installDir || '').trim();
+
+  let removedManifest = false;
+  let removedFolder = false;
+
+  const steamAppsDir = path.join(steamPath, 'steamapps');
+
+  if (effectiveSteamAppId) {
+    const acfPath = path.join(steamAppsDir, `appmanifest_${effectiveSteamAppId}.acf`);
+    if (fs.existsSync(acfPath)) {
+      try {
+        await fsp.unlink(acfPath);
+        removedManifest = true;
+      } catch {}
+    }
+  }
+
+  if (effectiveInstallDir) {
+    const commonDir = path.join(steamAppsDir, 'common', effectiveInstallDir);
+    if (fs.existsSync(commonDir)) {
+      try {
+        await fsp.rm(commonDir, { recursive: true, force: true });
+        removedFolder = true;
+      } catch {}
+    }
+  }
+
+  if (game) {
+    game.useSteamPath = false;
+    delete game.steamExePath;
+    await writeJson(paths.myGamesPath, safeList);
+  }
+
+  return { ok: true, removedManifest, removedFolder, updatedGame: game };
 });
 
 ipcMain.handle('launcher/createShortcut', async (_evt, { appId, exe }) => {

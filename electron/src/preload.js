@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('launcherApi', {
   updateGameExecutable: (appId, oldExe, newExe) => ipcRenderer.invoke('launcher/updateGameExecutable', { appId, oldExe, newExe }),
   getSteamPath: () => ipcRenderer.invoke('launcher/getSteamPath'),
   setupSteamIntegration: (params) => ipcRenderer.invoke('launcher/setupSteamIntegration', params),
+  removeSteamIntegration: (params) => ipcRenderer.invoke('launcher/removeSteamIntegration', params),
   createShortcut: (appId, exe) => ipcRenderer.invoke('launcher/createShortcut', { appId, exe }),
 
   // Run

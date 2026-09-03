@@ -62,6 +62,7 @@ const steamModal = document.getElementById('steamModal');
 const steamCloseBtn = document.getElementById('steamCloseBtn');
 const steamCancelBtn = document.getElementById('steamCancelBtn');
 const steamConfirmBtn = document.getElementById('steamConfirmBtn');
+const steamRemoveBtn = document.getElementById('steamRemoveBtn');
 const steamAppIdInput = document.getElementById('steamAppIdInput');
 const steamInstallDirInput = document.getElementById('steamInstallDirInput');
 const steamExeRelInput = document.getElementById('steamExeRelInput');
@@ -139,6 +140,10 @@ function updateDetailsPanel() {
 
   if (!detailAppId || !detailExe || !detailFavorite || !detailRunning) return;
 
+  if (detailSteamItem) {
+    detailSteamItem.style.display = 'none';
+  }
+
   if (!selectedGame) {
     detailAppId.textContent = dash;
     detailExe.textContent = dash;
@@ -152,7 +157,17 @@ function updateDetailsPanel() {
   detailFavorite.textContent = selectedGame.isFavorite ? 'Yes' : 'No';
   detailRunning.textContent = isGameRunning(selectedGame) ? 'Yes' : 'No';
 
-  if (detailSteamStatus) {
+  const needsSteam = Boolean(
+    selectedGame.useSteamPath ||
+    (selectedGame.usesNewDetection && selectedGame.steamAppId) ||
+    selectedGame.name.toLowerCase().includes('tokon')
+  );
+
+  if (detailSteamItem) {
+    detailSteamItem.style.display = needsSteam ? 'block' : 'none';
+  }
+
+  if (needsSteam && detailSteamStatus) {
     if (selectedGame.useSteamPath) {
       detailSteamStatus.textContent = `Configured (Steam AppID: ${selectedGame.steamAppId || '3787240'})`;
       detailSteamStatus.style.color = 'var(--success)';
@@ -388,6 +403,13 @@ function openSteamModal(game) {
   if (steamAppIdInput) steamAppIdInput.value = defaultSteamAppId;
   if (steamInstallDirInput) steamInstallDirInput.value = defaultInstallDir || game.name.replace(/[<>:"/\\|?*]/g, '_').trim();
   if (steamExeRelInput) steamExeRelInput.value = defaultExeRel;
+
+  if (steamRemoveBtn) {
+    steamRemoveBtn.style.display = game.useSteamPath ? 'block' : 'none';
+  }
+  if (steamConfirmBtn) {
+    steamConfirmBtn.textContent = game.useSteamPath ? 'Update Steam Manifest' : 'Install to Steam';
+  }
 
   if (steamModal) steamModal.style.display = 'flex';
 }
@@ -874,6 +896,37 @@ if (steamConfirmBtn) {
       selectedGame.steamExePath = r.destExePath;
       const heroExeEl = document.getElementById('heroExe');
       if (heroExeEl) heroExeEl.innerText = exe;
+      updateDetailsPanel();
+    }
+
+    renderMainList(searchInput.value);
+  });
+}
+
+if (steamRemoveBtn) {
+  steamRemoveBtn.addEventListener('click', async () => {
+    if (!gameForSteamSetup) return;
+    log(`Removing Steam manifest and dummy for ${gameForSteamSetup.name}...`);
+    const r = await launcherApi.removeSteamIntegration({
+      appId: gameForSteamSetup.appId,
+      steamAppId: gameForSteamSetup.steamAppId,
+      installDir: gameForSteamSetup.installDir
+    });
+
+    if (!r?.ok) {
+      log(`Failed to remove from Steam: ${r?.error || 'unknown error'}`, 'log-danger');
+      return;
+    }
+
+    gameForSteamSetup.useSteamPath = false;
+    delete gameForSteamSetup.steamExePath;
+
+    closeSteamModal();
+    log(`Removed ${gameForSteamSetup.name} from Steam library.`, 'log-success');
+
+    if (selectedGame && String(selectedGame.appId) === String(gameForSteamSetup.appId)) {
+      selectedGame.useSteamPath = false;
+      delete selectedGame.steamExePath;
       updateDetailsPanel();
     }
 

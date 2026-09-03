@@ -205,9 +205,11 @@
         <svg style="cursor:pointer;" id="steamCloseBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </div>
       <div class="modal-body">
-        <div style="color: var(--text-normal); font-weight: 600; margin-bottom: 8px;">Auto-generate Steam Manifest for Discord</div>
-        <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 14px; line-height: 1.4;">
-          For games detected via Steam (like <b>Marvel Tokon</b>), this writes <code>appmanifest_&lt;id&gt;.acf</code> and installs the dummy executable directly inside your Steam library folder so Discord hooks it for quests.
+        <div style="background-color: rgba(88,101,242,0.1); border: 1px solid rgba(88,101,242,0.25); border-radius: 6px; padding: 10px 12px; margin-bottom: 14px;">
+          <div style="color: var(--text-header); font-weight: 600; font-size: 13px; margin-bottom: 4px;">Why is this needed?</div>
+          <div style="color: var(--text-muted); font-size: 12px; line-height: 1.4;">
+            Discord detects this game through your local Steam client rather than Windows process scanning. Generating a manifest creates a ~1MB lightweight dummy in Steam, allowing Discord Quests to track your playtime.
+          </div>
         </div>
         
         <div style="margin-bottom: 12px;">
@@ -225,9 +227,12 @@
           <input type="text" class="search-input" id="steamExeRelInput" placeholder="e.g. Binaries/Win64/MTFSSteam-Win64-Shipping.exe" spellcheck="false" />
         </div>
 
-        <div style="display:flex; gap:10px; justify-content:flex-end;">
-          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="steamCancelBtn">Cancel</button>
-          <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="steamConfirmBtn">Install to Steam</button>
+        <div style="display:flex; gap:10px; justify-content:space-between; align-items:center;">
+          <button class="btn-main" style="background-color: transparent; border: 1px solid var(--danger); color: var(--danger); display: none;" id="steamRemoveBtn">Remove from Steam</button>
+          <div style="display:flex; gap:10px; margin-left:auto;">
+            <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="steamCancelBtn">Cancel</button>
+            <button class="btn-add-game" style="background-color: var(--brand); color: #fff; border: none; width: auto; padding: 10px 18px;" id="steamConfirmBtn">Install to Steam</button>
+          </div>
         </div>
       </div>
     </div>
