@@ -76,7 +76,7 @@ let updateUiState = {
 
 // Settings & Quest Timer
 const settingsModal = document.getElementById('settingsModal');
-const settingsBtn = document.getElementById('settingsBtn');
+const settingsButtons = document.querySelectorAll('.settings-trigger');
 const settingsCloseBtn = document.getElementById('settingsCloseBtn');
 const settingsCancelBtn = document.getElementById('settingsCancelBtn');
 const settingsSaveBtn = document.getElementById('settingsSaveBtn');
@@ -1369,11 +1369,13 @@ if (detailSteamItem) {
 
 // Window controls
 const minBtn = document.getElementById('minBtn');
+const maxBtn = document.getElementById('maxBtn');
 const closeBtn = document.getElementById('closeBtn');
 minBtn.addEventListener('click', () => launcherApi.minimize());
+maxBtn.addEventListener('click', () => launcherApi.toggleMaximize());
 closeBtn.addEventListener('click', () => launcherApi.close());
 
-if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
+for (const button of settingsButtons) button.addEventListener('click', openSettingsModal);
 if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsModal);
 if (settingsCancelBtn) settingsCancelBtn.addEventListener('click', closeSettingsModal);
 
@@ -1461,6 +1463,17 @@ launcherApi.onGameExited((payload = {}) => {
 });
 
 (async function init() {
+  const syncMaximizedState = (maximized) => {
+    if (!maxBtn) return;
+    maxBtn.classList.toggle('is-maximized', Boolean(maximized));
+    maxBtn.title = maximized ? 'Restore' : 'Maximize';
+    maxBtn.setAttribute('aria-label', maximized ? 'Restore' : 'Maximize');
+  };
+  if (launcherApi.onMaximizedChanged) launcherApi.onMaximizedChanged(syncMaximizedState);
+  if (launcherApi.isMaximized) {
+    try { syncMaximizedState(await launcherApi.isMaximized()); } catch {}
+  }
+
   if (launcherApi.getSettings) {
     try {
       const s = await launcherApi.getSettings();

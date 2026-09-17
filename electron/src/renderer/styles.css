@@ -53,19 +53,25 @@ body {
 
 .window-controls {
   display: flex;
-  gap: 6px;
   -webkit-app-region: no-drag;
+  align-self: stretch;
 }
 
 .win-btn {
-  height: 24px;
-  width: 40px;
+  height: 32px;
+  width: 46px;
   border: none;
-  border-radius: 6px;
   cursor: pointer;
   background: transparent;
   color: var(--text-muted);
+  display: grid;
+  place-items: center;
 }
+
+.win-btn svg { fill: none; stroke: currentColor; stroke-width: 1; }
+.window-icon-restore { display: none; }
+.win-btn.is-maximized .window-icon-maximize { display: none; }
+.win-btn.is-maximized .window-icon-restore { display: block; }
 
 .win-btn:hover {
   background: var(--bg-hover);
@@ -73,8 +79,18 @@ body {
 }
 
 .win-btn.close:hover {
-  background: rgba(237, 66, 69, 0.25);
+  background: #c42b1c;
   color: var(--text-header);
+}
+
+.win-btn:active { background: rgba(255, 255, 255, 0.12); }
+.win-btn.close:active { background: #a61b0f; }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 /* --- Layout --- */
@@ -127,6 +143,23 @@ body {
 .sidebar-buttons-row .btn-add-game {
   flex: 1;
 }
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.12s ease;
+}
+
+.btn-icon:hover { background: rgba(255, 255, 255, 0.08); color: var(--text-header); }
+.btn-icon:active { transform: translateY(1px); }
 
 .btn-add-game {
   width: 100%;

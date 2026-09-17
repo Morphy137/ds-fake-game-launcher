@@ -620,6 +620,13 @@ async function createWindow() {
   });
 
   await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  const sendMaximizedState = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('app/window/maximizedChanged', mainWindow.isMaximized());
+  };
+  mainWindow.on('maximize', sendMaximizedState);
+  mainWindow.on('unmaximize', sendMaximizedState);
 }
 
 app.whenReady().then(async () => {
@@ -1243,4 +1250,18 @@ ipcMain.handle('update/quitAndInstall', async () => {
   } catch (e) {
     return { ok: false, error: String(e?.message || e || 'Failed to install update') };
   }
+});
+
+ipcMain.handle('app/window/toggleMaximize', () => {
+  if (!mainWindow) return false;
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize();
+  } else {
+    mainWindow.maximize();
+  }
+  return mainWindow.isMaximized();
+});
+
+ipcMain.handle('app/window/isMaximized', () => {
+  return Boolean(mainWindow?.isMaximized());
 });
