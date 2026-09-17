@@ -1,7 +1,7 @@
 {
   "name": "discord-fake-game-launcher-ui",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Discord Fake Game Launcher for Quest Tracking",
   "author": "Morphy137",
   "repository": {
