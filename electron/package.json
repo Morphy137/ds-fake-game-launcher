@@ -63,10 +63,11 @@
       }
     ],
     "nsis": {
-      "oneClick": true,
-      "perMachine": true,
+      "oneClick": false,
+      "perMachine": false,
       "allowElevation": true,
-      "createDesktopShortcut": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
       "shortcutName": "Discord Fake Game Launcher"
     }

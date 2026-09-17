@@ -23,7 +23,7 @@ npm run dev
 npm run dist
 ```
 
-This produces an NSIS installer in `electron/dist/` that installs to Program Files and creates shortcuts.
+This produces an assisted NSIS installer in `electron/dist/`. It installs for the current user by default, lets the user choose the destination folder, and creates a Start menu shortcut without forcing a desktop shortcut.
 
 ## Optional: portable build
 
