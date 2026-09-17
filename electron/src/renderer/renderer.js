@@ -34,6 +34,7 @@ const contextMenuEl = document.getElementById('contextMenu');
 const updateModal = document.getElementById('updateModal');
 const updateCloseBtn = document.getElementById('updateCloseBtn');
 const updateSubtitle = document.getElementById('updateSubtitle');
+const updateDistributionNotice = document.getElementById('updateDistributionNotice');
 const updateNotes = document.getElementById('updateNotes');
 const updateInstallBtn = document.getElementById('updateInstallBtn');
 const updateRemindBtn = document.getElementById('updateRemindBtn');
@@ -73,7 +74,8 @@ let gameForSteamSetup = null;
 let updateUiState = {
   visible: false,
   installing: false,
-  releaseUrl: ''
+  releaseUrl: '',
+  distribution: 'installed'
 };
 
 // Settings & Quest Timer
@@ -829,11 +831,25 @@ function showUpdateModal(payload) {
   updateUiState.visible = true;
   updateUiState.installing = false;
   updateUiState.releaseUrl = payload.releaseUrl || 'https://github.com/Morphy137/ds-fake-game-launcher/releases/latest';
+  updateUiState.distribution = payload.distribution === 'portable' ? 'portable' : 'installed';
 
   updateInstallBtn.disabled = false;
   updateRemindBtn.disabled = false;
-  if (updateViewGithubBtn) updateViewGithubBtn.disabled = false;
-  updateInstallBtn.textContent = 'Install update';
+  if (updateViewGithubBtn) {
+    updateViewGithubBtn.disabled = false;
+    updateViewGithubBtn.style.display = updateUiState.distribution === 'portable' ? 'none' : '';
+  }
+  updateInstallBtn.textContent = updateUiState.distribution === 'portable'
+    ? 'Download portable version'
+    : 'Install update';
+
+  if (updateDistributionNotice) {
+    const isPortable = updateUiState.distribution === 'portable';
+    updateDistributionNotice.hidden = !isPortable;
+    updateDistributionNotice.textContent = isPortable
+      ? 'You are using the portable edition. Download the new portable executable and replace the current file after closing the app.'
+      : '';
+  }
 
   const version = payload.version ? `v${payload.version}` : 'New version';
   updateSubtitle.textContent = payload.releaseName
@@ -1216,6 +1232,12 @@ if (updateViewGithubBtn) {
 if (updateInstallBtn) {
   updateInstallBtn.addEventListener('click', async () => {
     if (updateUiState.installing) return;
+    if (updateUiState.distribution === 'portable') {
+      if (updateUiState.releaseUrl && launcherApi.openExternal) {
+        await launcherApi.openExternal(updateUiState.releaseUrl);
+      }
+      return;
+    }
     updateUiState.installing = true;
     updateInstallBtn.disabled = true;
     updateRemindBtn.disabled = true;

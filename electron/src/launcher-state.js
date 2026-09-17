@@ -92,6 +92,10 @@ function isVersionNewer(candidate, current) {
   return false;
 }
 
+function getDistributionMode(env = process.env) {
+  return String(env?.PORTABLE_EXECUTABLE_FILE || '').trim() ? 'portable' : 'installed';
+}
+
 function getGameCoverCandidates(game) {
   if (!game || typeof game !== 'object') return [];
   const candidates = [];
@@ -142,6 +146,7 @@ module.exports = {
   requiresSteamIntegration,
   parseReleaseVersion,
   isVersionNewer,
+  getDistributionMode,
   getGameCoverCandidates,
   resolveGameCoverUrl
 };

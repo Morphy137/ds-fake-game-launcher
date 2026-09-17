@@ -125,6 +125,14 @@ test('isVersionNewer supports release and v-prefixed GitHub tags', () => {
   assert.equal(isVersionNewer('not-a-version', '1.2.3'), false);
 });
 
+test('getDistributionMode detects electron-builder portable runs', () => {
+  const { getDistributionMode } = require('../src/launcher-state');
+
+  assert.equal(getDistributionMode({ PORTABLE_EXECUTABLE_FILE: 'D:\\Apps\\Launcher.exe' }), 'portable');
+  assert.equal(getDistributionMode({ PORTABLE_EXECUTABLE_FILE: '  ' }), 'installed');
+  assert.equal(getDistributionMode({}), 'installed');
+});
+
 test('resolveGameCoverUrl resolves Steam, Discord Cover, Discord Icon, and null', () => {
   const { resolveGameCoverUrl, getGameCoverCandidates } = require('../src/launcher-state');
 

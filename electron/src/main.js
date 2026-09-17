@@ -5,7 +5,13 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const { spawn } = require('child_process');
-const { makeGameKey, formatTrayStatus, requiresSteamIntegration, isVersionNewer } = require('./launcher-state');
+const {
+  makeGameKey,
+  formatTrayStatus,
+  requiresSteamIntegration,
+  isVersionNewer,
+  getDistributionMode
+} = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
 
@@ -385,6 +391,7 @@ let mainWindow = null;
 let runningProcesses = new Map();
 
 let pendingUpdateInfo = null;
+const distributionMode = getDistributionMode(process.env);
 
 function coerceReleaseNotesToText(releaseNotes) {
   if (!releaseNotes) return '';
@@ -421,7 +428,8 @@ async function maybeCheckForUpdates() {
       releaseName: String(info?.releaseName || ''),
       releaseDate: info?.releaseDate ? String(info.releaseDate) : '',
       releaseNotes: coerceReleaseNotesToText(info?.releaseNotes),
-      releaseUrl: 'https://github.com/Morphy137/ds-fake-game-launcher/releases/latest'
+      releaseUrl: 'https://github.com/Morphy137/ds-fake-game-launcher/releases/latest',
+      distribution: distributionMode
     };
 
     pendingUpdateInfo = payload;
@@ -1233,6 +1241,12 @@ ipcMain.handle('update/remindLater', async () => {
 
 ipcMain.handle('update/install', async () => {
   if (!app.isPackaged) return { ok: false, error: 'Updates are only available in packaged builds.' };
+  if (distributionMode === 'portable') {
+    return {
+      ok: false,
+      error: 'Portable updates must be downloaded from GitHub Releases.'
+    };
+  }
 
   try {
     await autoUpdater.downloadUpdate();

@@ -1010,9 +1010,20 @@ input:checked + .slider:before {
 }
 
 #btnCheckUpdatesManual { width: 144px; }
-#updateInstallBtn { width: 132px; }
+#updateInstallBtn { width: 188px; }
 #steamConfirmBtn { width: 132px; }
 #steamRemoveBtn { width: 136px; }
+
+.update-distribution-notice {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--brand);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
 
 .games-grid {
   --card-min-width: 165px;
