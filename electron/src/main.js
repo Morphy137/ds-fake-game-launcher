@@ -12,6 +12,7 @@ const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable'
 const DEFAULT_SETTINGS = {
   questTimerEnabled: true,
   questDurationMinutes: 15,
+  questSyncBufferSeconds: 60,
   autoStopOnComplete: true,
   notifyOnComplete: true,
   minimizeToTray: true,

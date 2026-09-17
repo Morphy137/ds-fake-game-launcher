@@ -48,6 +48,18 @@ function calculateTimerProgress(startTime, durationMs, now = Date.now()) {
   return { elapsed, remaining, isComplete, percent };
 }
 
+function calculateQuestTimerState(startTime, targetDurationMs, syncBufferMs = 0, now = Date.now()) {
+  const target = Math.max(0, Number(targetDurationMs) || 0);
+  const buffer = Math.max(0, Number(syncBufferMs) || 0);
+  const total = target + buffer;
+  const elapsed = Math.max(0, now - (startTime || now));
+  const remaining = Math.max(0, total - elapsed);
+  const targetRemaining = Math.max(0, target - elapsed);
+  const phase = elapsed >= total ? 'complete' : elapsed >= target ? 'syncing' : 'playing';
+  const percent = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 100;
+  return { elapsed, remaining, targetRemaining, phase, percent };
+}
+
 function formatTrayStatus(runningGamesCount, firstGameName) {
   const count = Math.max(0, Number(runningGamesCount) || 0);
   if (count <= 0) {
@@ -109,6 +121,7 @@ module.exports = {
   removeExitedGame,
   formatTimerRemaining,
   calculateTimerProgress,
+  calculateQuestTimerState,
   formatTrayStatus,
   requiresSteamIntegration,
   getGameCoverCandidates,

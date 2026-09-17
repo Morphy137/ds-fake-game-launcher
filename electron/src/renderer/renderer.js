@@ -82,6 +82,7 @@ const settingsCancelBtn = document.getElementById('settingsCancelBtn');
 const settingsSaveBtn = document.getElementById('settingsSaveBtn');
 const settingQuestTimerEnabled = document.getElementById('settingQuestTimerEnabled');
 const settingQuestDuration = document.getElementById('settingQuestDuration');
+const settingQuestSyncBuffer = document.getElementById('settingQuestSyncBuffer');
 const settingAutoStop = document.getElementById('settingAutoStop');
 const settingNotify = document.getElementById('settingNotify');
 const settingMinimizeToTray = document.getElementById('settingMinimizeToTray');
@@ -95,6 +96,7 @@ const heroSection = document.getElementById('heroSection');
 const gridSection = document.getElementById('gridSection');
 const mainGamesGrid = document.getElementById('mainGamesGrid');
 const gridGameCount = document.getElementById('gridGameCount');
+const activeGameCount = document.getElementById('activeGameCount');
 const gridEmptyState = document.getElementById('gridEmptyState');
 const btnBackToGrid = document.getElementById('btnBackToGrid');
 const viewModeListBtn = document.getElementById('viewModeListBtn');
@@ -112,6 +114,7 @@ let currentCardSize = 'medium';
 let appSettings = {
   questTimerEnabled: true,
   questDurationMinutes: 15,
+  questSyncBufferSeconds: 60,
   autoStopOnComplete: true,
   notifyOnComplete: true,
   minimizeToTray: true,
@@ -119,7 +122,7 @@ let appSettings = {
   cardSize: 'medium'
 };
 
-const activeQuestTimers = new Map(); // key -> { startTime, durationMs, game, notified }
+const activeQuestTimers = new Map(); // key -> { startTime, targetDurationMs, syncBufferMs, game, notified }
 
 function formatTimerRemaining(remainingMs) {
   const totalSeconds = Math.max(0, Math.floor((remainingMs || 0) / 1000));
@@ -194,16 +197,13 @@ function updateQuestTimerDisplay() {
     return;
   }
 
-  const remaining = Math.max(0, timer.durationMs - (Date.now() - timer.startTime));
+  const state = getQuestTimerState(timer);
   questTimerBadge.style.display = 'inline-flex';
-
-  if (remaining > 0) {
-    questTimerBadge.classList.remove('completed');
-    questTimerText.textContent = formatTimerRemaining(remaining);
-  } else {
-    questTimerBadge.classList.add('completed');
-    questTimerText.textContent = '00:00';
-  }
+  questTimerBadge.classList.toggle('syncing', state.phase === 'syncing');
+  questTimerBadge.classList.toggle('completed', state.phase === 'complete');
+  questTimerText.textContent = state.phase === 'syncing'
+    ? `Syncing ${formatTimerRemaining(state.remaining)}`
+    : state.phase === 'complete' ? 'Complete' : formatTimerRemaining(state.remaining);
 }
 
 // Tick quest timers every second
@@ -212,16 +212,15 @@ setInterval(() => {
 
   const now = Date.now();
   for (const [key, timer] of Array.from(activeQuestTimers.entries())) {
-    const elapsed = now - timer.startTime;
-    const remaining = Math.max(0, timer.durationMs - elapsed);
+    const state = getQuestTimerState(timer, now);
 
-    if (remaining <= 0) {
+    if (state.phase === 'complete') {
       if (appSettings.autoStopOnComplete) {
-        log(`[Quest Timer] ${timer.game.name} completed ${appSettings.questDurationMinutes}m quest. Auto-stopping process...`, 'log-success');
+        log(`[Quest Timer] ${timer.game.name} completed the quest and Discord sync buffer. Auto-stopping process...`, 'log-success');
         if (appSettings.notifyOnComplete && launcherApi.sendNotification) {
           launcherApi.sendNotification({
             title: 'Discord Quest Complete!',
-            body: `${timer.game.name} has finished the ${appSettings.questDurationMinutes}-minute quest and was closed.`
+            body: `${timer.game.name} finished the quest and Discord sync buffer, then closed automatically.`
           });
         }
         activeQuestTimers.delete(key);
@@ -242,11 +241,13 @@ setInterval(() => {
   }
 
   updateQuestTimerDisplay();
+  updateGridQuestTimers(now);
 }, 1000);
 
 function openSettingsModal() {
   if (settingQuestTimerEnabled) settingQuestTimerEnabled.checked = Boolean(appSettings.questTimerEnabled);
   if (settingQuestDuration) settingQuestDuration.value = String(appSettings.questDurationMinutes || 15);
+  if (settingQuestSyncBuffer) settingQuestSyncBuffer.value = String(appSettings.questSyncBufferSeconds ?? 60);
   if (settingAutoStop) settingAutoStop.checked = Boolean(appSettings.autoStopOnComplete);
   if (settingNotify) settingNotify.checked = Boolean(appSettings.notifyOnComplete);
   if (settingMinimizeToTray) settingMinimizeToTray.checked = Boolean(appSettings.minimizeToTray !== false);
@@ -369,6 +370,11 @@ function renderGridView(filter = '') {
   if (gridGameCount) {
     gridGameCount.textContent = `(${matchedGames.length})`;
   }
+  if (activeGameCount) {
+    const activeCount = myGames.filter(isGameRunning).length;
+    activeGameCount.hidden = activeCount === 0;
+    activeGameCount.textContent = `${activeCount} active`;
+  }
 
   if (matchedGames.length === 0) {
     if (gridEmptyState) gridEmptyState.style.display = 'flex';
@@ -379,11 +385,16 @@ function renderGridView(filter = '') {
 
   for (const game of matchedGames) {
     const isRunning = isGameRunning(game);
+    const gameKey = makeGameKey(game);
+    const timerState = getQuestTimerState(activeQuestTimers.get(gameKey));
     const candidates = getGameCoverCandidates(game);
     const initials = getGameInitials(game.name);
 
     const card = document.createElement('div');
     card.className = `game-card ${selectedGame === game ? 'active' : ''} ${isRunning ? 'running' : ''}`;
+    card.dataset.gameKey = gameKey;
+    if (timerState?.phase === 'syncing') card.classList.add('syncing');
+    if (timerState?.phase === 'complete') card.classList.add('quest-complete');
 
     const playBtnSvg = isRunning
       ? `<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>`
@@ -394,7 +405,8 @@ function renderGridView(filter = '') {
         ${isRunning ? `
           <div class="game-card-badge">
             <span class="game-card-badge-dot"></span>
-            <span>Playing</span>
+            <span class="game-card-status-label">${timerState?.phase === 'syncing' ? 'Syncing' : timerState?.phase === 'complete' ? 'Complete' : 'Playing'}</span>
+            ${timerState ? `<span class="game-card-timer">${formatTimerRemaining(timerState.remaining)}</span>` : ''}
           </div>` : ''}
 
         <div class="game-card-fav ${game.isFavorite ? 'active' : ''}" title="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
@@ -419,6 +431,7 @@ function renderGridView(filter = '') {
             ${playBtnSvg}
           </button>
         </div>
+        ${isRunning && timerState ? `<div class="game-card-progress"><div class="game-card-progress-fill" style="transform: scaleX(${timerState.percent / 100})"></div></div>` : ''}
       </div>
 
       <div class="game-card-info">
@@ -506,6 +519,34 @@ function setViewMode(mode) {
   } catch {}
   if (launcherApi.saveSettings) {
     launcherApi.saveSettings(appSettings).catch(() => {});
+  }
+}
+
+function getQuestTimerState(timer, now = Date.now()) {
+  if (!timer) return null;
+  const targetDurationMs = Math.max(0, Number(timer.targetDurationMs) || 0);
+  const syncBufferMs = Math.max(0, Number(timer.syncBufferMs) || 0);
+  const totalDurationMs = targetDurationMs + syncBufferMs;
+  const elapsed = Math.max(0, now - timer.startTime);
+  const remaining = Math.max(0, totalDurationMs - elapsed);
+  const phase = elapsed >= totalDurationMs ? 'complete' : elapsed >= targetDurationMs ? 'syncing' : 'playing';
+  const percent = totalDurationMs > 0 ? Math.min(100, Math.max(0, (elapsed / totalDurationMs) * 100)) : 100;
+  return { remaining, phase, percent };
+}
+
+function updateGridQuestTimers(now = Date.now()) {
+  if (!mainGamesGrid) return;
+  for (const card of mainGamesGrid.querySelectorAll('.game-card[data-game-key]')) {
+    const state = getQuestTimerState(activeQuestTimers.get(card.dataset.gameKey), now);
+    const label = card.querySelector('.game-card-status-label');
+    const timerText = card.querySelector('.game-card-timer');
+    const progress = card.querySelector('.game-card-progress-fill');
+
+    card.classList.toggle('syncing', state?.phase === 'syncing');
+    card.classList.toggle('quest-complete', state?.phase === 'complete');
+    if (label) label.textContent = state?.phase === 'syncing' ? 'Syncing' : state?.phase === 'complete' ? 'Complete' : 'Playing';
+    if (timerText) timerText.textContent = state ? formatTimerRemaining(state.remaining) : '';
+    if (progress) progress.style.transform = `scaleX(${state ? state.percent / 100 : 0})`;
   }
 }
 
@@ -1069,10 +1110,12 @@ launchBtn.addEventListener('click', async () => {
     if (r.ok) {
       runningGames.add(selectedKey);
       if (appSettings.questTimerEnabled) {
-        const durationMs = (appSettings.questDurationMinutes || 15) * 60 * 1000;
+        const targetDurationMs = (appSettings.questDurationMinutes || 15) * 60 * 1000;
+        const syncBufferMs = Math.max(0, Number(appSettings.questSyncBufferSeconds) || 0) * 1000;
         activeQuestTimers.set(selectedKey, {
           startTime: Date.now(),
-          durationMs,
+          targetDurationMs,
+          syncBufferMs,
           game: selectedGame,
           notified: false
         });
@@ -1419,6 +1462,7 @@ if (settingsSaveBtn) {
       ...appSettings,
       questTimerEnabled: settingQuestTimerEnabled ? settingQuestTimerEnabled.checked : true,
       questDurationMinutes: settingQuestDuration ? parseInt(settingQuestDuration.value, 10) || 15 : 15,
+      questSyncBufferSeconds: settingQuestSyncBuffer ? parseInt(settingQuestSyncBuffer.value, 10) || 0 : 60,
       autoStopOnComplete: settingAutoStop ? settingAutoStop.checked : true,
       notifyOnComplete: settingNotify ? settingNotify.checked : true,
       minimizeToTray: settingMinimizeToTray ? settingMinimizeToTray.checked : true

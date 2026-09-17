@@ -74,6 +74,27 @@ test('calculateTimerProgress calculates progress, remaining, and completion', ()
   assert.equal(finished.percent, 100);
 });
 
+test('calculateQuestTimerState separates quest time from the sync buffer', () => {
+  const { calculateQuestTimerState } = require('../src/launcher-state');
+  const start = 1000000;
+  const target = 15 * 60 * 1000;
+  const buffer = 60 * 1000;
+
+  const playing = calculateQuestTimerState(start, target, buffer, start + (14 * 60 * 1000));
+  assert.equal(playing.phase, 'playing');
+  assert.equal(playing.remaining, 2 * 60 * 1000);
+
+  const syncing = calculateQuestTimerState(start, target, buffer, start + target + 15000);
+  assert.equal(syncing.phase, 'syncing');
+  assert.equal(syncing.remaining, 45000);
+  assert.equal(syncing.targetRemaining, 0);
+
+  const complete = calculateQuestTimerState(start, target, buffer, start + target + buffer);
+  assert.equal(complete.phase, 'complete');
+  assert.equal(complete.remaining, 0);
+  assert.equal(complete.percent, 100);
+});
+
 test('formatTrayStatus handles single, multiple, and empty games', () => {
   const { formatTrayStatus } = require('../src/launcher-state');
   assert.equal(formatTrayStatus(0), 'No games running');
