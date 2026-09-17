@@ -1503,7 +1503,9 @@ if (btnCheckUpdatesManual) {
         if (res.updateAvailable) {
           const displayVersion = String(res.latestTag || '').replace(/^(?:release_|v)/i, '');
           if (updateStatusText) {
-            updateStatusText.innerHTML = `<span style="color:var(--success); font-weight:600;">Update v${displayVersion} available.</span>`;
+            updateStatusText.textContent = `Update v${displayVersion} available.`;
+            updateStatusText.style.color = 'var(--success)';
+            updateStatusText.style.fontWeight = '600';
           }
           btnCheckUpdatesManual.textContent = 'Download on GitHub';
           btnCheckUpdatesManual.disabled = false;
@@ -1512,7 +1514,9 @@ if (btnCheckUpdatesManual) {
         } else {
           manualUpdateReleaseUrl = '';
           if (updateStatusText) {
-            updateStatusText.innerHTML = `<span style="color:var(--brand); font-weight:600;">You are on the latest version.</span>`;
+            updateStatusText.textContent = 'You are on the latest version.';
+            updateStatusText.style.color = 'var(--brand)';
+            updateStatusText.style.fontWeight = '600';
           }
           btnCheckUpdatesManual.textContent = 'Up to Date';
           btnCheckUpdatesManual.disabled = false;
