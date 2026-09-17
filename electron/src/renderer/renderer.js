@@ -88,6 +88,7 @@ const settingQuestSyncBuffer = document.getElementById('settingQuestSyncBuffer')
 const settingAutoStop = document.getElementById('settingAutoStop');
 const settingNotify = document.getElementById('settingNotify');
 const settingMinimizeToTray = document.getElementById('settingMinimizeToTray');
+const settingCardSize = document.getElementById('settingCardSize');
 const questTimerBadge = document.getElementById('questTimerBadge');
 const questTimerText = document.getElementById('questTimerText');
 
@@ -107,8 +108,6 @@ const gridSearchInput = document.getElementById('gridSearchInput');
 const gridOpenAddModalBtn = document.getElementById('gridOpenAddModalBtn');
 const gridToggleListBtn = document.getElementById('gridToggleListBtn');
 const gridToggleGridBtn = document.getElementById('gridToggleGridBtn');
-const decreaseCardSizeBtn = document.getElementById('decreaseCardSizeBtn');
-const increaseCardSizeBtn = document.getElementById('increaseCardSizeBtn');
 const CARD_SIZES = ['compact', 'medium', 'large'];
 let currentViewMode = 'grid';
 let currentCardSize = 'medium';
@@ -253,6 +252,7 @@ function openSettingsModal() {
   if (settingAutoStop) settingAutoStop.checked = Boolean(appSettings.autoStopOnComplete);
   if (settingNotify) settingNotify.checked = Boolean(appSettings.notifyOnComplete);
   if (settingMinimizeToTray) settingMinimizeToTray.checked = Boolean(appSettings.minimizeToTray !== false);
+  if (settingCardSize) settingCardSize.value = currentCardSize;
   if (settingsModal) settingsModal.style.display = 'flex';
 }
 
@@ -557,10 +557,6 @@ function setCardSize(size, persist = true) {
   currentCardSize = normalizedSize;
   appSettings.cardSize = normalizedSize;
   if (mainGamesGrid) mainGamesGrid.dataset.cardSize = normalizedSize;
-
-  const sizeIndex = CARD_SIZES.indexOf(normalizedSize);
-  if (decreaseCardSizeBtn) decreaseCardSizeBtn.disabled = sizeIndex === 0;
-  if (increaseCardSizeBtn) increaseCardSizeBtn.disabled = sizeIndex === CARD_SIZES.length - 1;
 
   if (!persist) return;
   try { localStorage.setItem('cardSize', normalizedSize); } catch {}
@@ -1162,18 +1158,6 @@ if (gridSearchInput) {
 if (gridOpenAddModalBtn) gridOpenAddModalBtn.onclick = openModal;
 if (gridToggleListBtn) gridToggleListBtn.addEventListener('click', () => setViewMode('list'));
 if (gridToggleGridBtn) gridToggleGridBtn.addEventListener('click', () => setViewMode('grid'));
-if (decreaseCardSizeBtn) {
-  decreaseCardSizeBtn.addEventListener('click', () => {
-    const nextIndex = Math.max(0, CARD_SIZES.indexOf(currentCardSize) - 1);
-    setCardSize(CARD_SIZES[nextIndex]);
-  });
-}
-if (increaseCardSizeBtn) {
-  increaseCardSizeBtn.addEventListener('click', () => {
-    const nextIndex = Math.min(CARD_SIZES.length - 1, CARD_SIZES.indexOf(currentCardSize) + 1);
-    setCardSize(CARD_SIZES[nextIndex]);
-  });
-}
 
 if (viewModeListBtn) viewModeListBtn.addEventListener('click', () => setViewMode('list'));
 if (viewModeGridBtn) viewModeGridBtn.addEventListener('click', () => setViewMode('grid'));
@@ -1477,8 +1461,11 @@ if (settingsSaveBtn) {
       questSyncBufferSeconds: settingQuestSyncBuffer ? parseInt(settingQuestSyncBuffer.value, 10) || 0 : 60,
       autoStopOnComplete: settingAutoStop ? settingAutoStop.checked : true,
       notifyOnComplete: settingNotify ? settingNotify.checked : true,
-      minimizeToTray: settingMinimizeToTray ? settingMinimizeToTray.checked : true
+      minimizeToTray: settingMinimizeToTray ? settingMinimizeToTray.checked : true,
+      cardSize: settingCardSize && CARD_SIZES.includes(settingCardSize.value) ? settingCardSize.value : 'medium'
     };
+    setCardSize(appSettings.cardSize, false);
+    try { localStorage.setItem('cardSize', appSettings.cardSize); } catch {}
     if (launcherApi.saveSettings) {
       await launcherApi.saveSettings(appSettings);
     }

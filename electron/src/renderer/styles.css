@@ -983,36 +983,6 @@ input:checked + .slider:before {
   gap: 10px;
 }
 
-.card-size-control {
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  color: var(--text-muted);
-}
-
-.card-size-button {
-  width: 24px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-normal);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.card-size-button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
-.card-size-button:active:not(:disabled) { transform: translateY(1px); }
-.card-size-button:disabled { color: rgba(185, 187, 190, 0.35); cursor: default; }
-
 .grid-search-wrapper {
   width: 220px;
   margin-bottom: 0 !important;
@@ -1029,6 +999,8 @@ input:checked + .slider:before {
 }
 
 .grid-btn-add {
+  width: 124px;
+  flex: 0 0 124px;
   height: 34px;
   padding: 0 14px;
   font-size: 13px;
@@ -1036,6 +1008,11 @@ input:checked + .slider:before {
   align-items: center;
   white-space: nowrap;
 }
+
+#btnCheckUpdatesManual { width: 144px; }
+#updateInstallBtn { width: 132px; }
+#steamConfirmBtn { width: 132px; }
+#steamRemoveBtn { width: 136px; }
 
 .games-grid {
   --card-min-width: 165px;
