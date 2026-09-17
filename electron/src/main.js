@@ -418,7 +418,7 @@ async function maybeCheckForUpdates() {
   if (!app.isPackaged) return;
 
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.on('update-available', (info) => {
     // No persisted dismissal: if the user picks "remind later", the update
@@ -1260,8 +1260,11 @@ ipcMain.handle('update/install', async () => {
 
 ipcMain.handle('update/quitAndInstall', async () => {
   if (!app.isPackaged) return { ok: false, error: 'Not packaged.' };
+  if (distributionMode === 'portable') {
+    return { ok: false, error: 'Portable updates cannot run the installer.' };
+  }
   try {
-    autoUpdater.quitAndInstall(true, true);
+    autoUpdater.quitAndInstall(false, false);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e?.message || e || 'Failed to install update') };

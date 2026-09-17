@@ -74,6 +74,7 @@ let gameForSteamSetup = null;
 let updateUiState = {
   visible: false,
   installing: false,
+  readyToInstall: false,
   releaseUrl: '',
   distribution: 'installed'
 };
@@ -830,6 +831,7 @@ function showUpdateModal(payload) {
 
   updateUiState.visible = true;
   updateUiState.installing = false;
+  updateUiState.readyToInstall = false;
   updateUiState.releaseUrl = payload.releaseUrl || 'https://github.com/Morphy137/ds-fake-game-launcher/releases/latest';
   updateUiState.distribution = payload.distribution === 'portable' ? 'portable' : 'installed';
 
@@ -841,7 +843,7 @@ function showUpdateModal(payload) {
   }
   updateInstallBtn.textContent = updateUiState.distribution === 'portable'
     ? 'Download portable version'
-    : 'Install update';
+    : 'Download update';
 
   if (updateDistributionNotice) {
     const isPortable = updateUiState.distribution === 'portable';
@@ -1238,6 +1240,27 @@ if (updateInstallBtn) {
       }
       return;
     }
+
+    if (updateUiState.readyToInstall) {
+      updateUiState.installing = true;
+      updateInstallBtn.disabled = true;
+      updateRemindBtn.disabled = true;
+      updateInstallBtn.textContent = 'Installing…';
+      if (updateProgressText) updateProgressText.textContent = 'Closing the app and opening the installer…';
+
+      const result = await launcherApi.quitAndInstallUpdate();
+      if (!result?.ok) {
+        updateUiState.installing = false;
+        updateInstallBtn.disabled = false;
+        updateRemindBtn.disabled = false;
+        updateInstallBtn.textContent = 'Restart and install';
+        if (updateProgressText) {
+          updateProgressText.textContent = `Installation failed: ${result?.error || 'unknown error'}`;
+        }
+      }
+      return;
+    }
+
     updateUiState.installing = true;
     updateInstallBtn.disabled = true;
     updateRemindBtn.disabled = true;
@@ -1250,7 +1273,7 @@ if (updateInstallBtn) {
       updateUiState.installing = false;
       updateInstallBtn.disabled = false;
       updateRemindBtn.disabled = false;
-      updateInstallBtn.textContent = 'Install update';
+      updateInstallBtn.textContent = 'Download update';
       if (updateProgressWrap) updateProgressWrap.style.display = 'none';
     }
   });
@@ -1628,13 +1651,17 @@ launcherApi.onGameExited((payload = {}) => {
     });
   }
   if (launcherApi.onUpdateDownloaded) {
-    launcherApi.onUpdateDownloaded(async () => {
+    launcherApi.onUpdateDownloaded(() => {
       setUpdateProgress(100, null);
-      if (updateProgressText) updateProgressText.textContent = 'Download complete. Installing…';
-      if (updateInstallBtn) updateInstallBtn.textContent = 'Installing…';
-      log('Update downloaded. Installing…', 'log-success');
-      // Opens the downloaded installer and quits this app so it can run.
-      await launcherApi.quitAndInstallUpdate();
+      updateUiState.installing = false;
+      updateUiState.readyToInstall = true;
+      if (updateProgressText) updateProgressText.textContent = 'Download complete. The update is ready to install.';
+      if (updateInstallBtn) {
+        updateInstallBtn.disabled = false;
+        updateInstallBtn.textContent = 'Restart and install';
+      }
+      if (updateRemindBtn) updateRemindBtn.disabled = false;
+      log('Update downloaded. Waiting for confirmation.', 'log-success');
     });
   }
   if (launcherApi.onUpdateError) {
@@ -1645,6 +1672,7 @@ launcherApi.onGameExited((payload = {}) => {
         updateProgressWrap.style.display = 'block';
         updateProgressText.textContent = `Update failed: ${message}`;
         updateUiState.installing = false;
+        updateUiState.readyToInstall = false;
         if (updateInstallBtn) {
           updateInstallBtn.disabled = false;
           updateInstallBtn.textContent = 'Retry download';
