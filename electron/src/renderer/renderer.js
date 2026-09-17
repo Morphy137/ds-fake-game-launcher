@@ -411,9 +411,9 @@ function renderGridView(filter = '') {
             ${timerState ? `<span class="game-card-timer">${formatTimerRemaining(timerState.remaining)}</span>` : ''}
           </div>` : ''}
 
-        <div class="game-card-fav ${game.isFavorite ? 'active' : ''}" title="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+        <button type="button" class="game-card-fav ${game.isFavorite ? 'active' : ''}" title="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}" aria-label="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
           ${starSvg}
-        </div>
+        </button>
 
         ${candidates.length > 0 ? `
           <img class="game-card-poster" src="${candidates[0]}" alt="${game.name}" loading="lazy" />
