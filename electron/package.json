@@ -59,7 +59,8 @@
       {
         "provider": "github",
         "owner": "Morphy137",
-        "repo": "ds-fake-game-launcher"
+        "repo": "ds-fake-game-launcher",
+        "releaseType": "release"
       }
     ],
     "nsis": {
