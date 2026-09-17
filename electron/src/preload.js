@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('launcherApi', {
   checkForUpdatesManual: () => ipcRenderer.invoke('app/checkForUpdatesManual'),
   installUpdate: () => ipcRenderer.invoke('update/install'),
   remindUpdateLater: () => ipcRenderer.invoke('update/remindLater'),
+  getPendingUpdate: () => ipcRenderer.invoke('update/getPending'),
   quitAndInstallUpdate: () => ipcRenderer.invoke('update/quitAndInstall'),
   onUpdateAvailable: (handler) => {
     ipcRenderer.removeAllListeners('update/available');

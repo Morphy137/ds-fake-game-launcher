@@ -37,6 +37,7 @@ const updateSubtitle = document.getElementById('updateSubtitle');
 const updateNotes = document.getElementById('updateNotes');
 const updateInstallBtn = document.getElementById('updateInstallBtn');
 const updateRemindBtn = document.getElementById('updateRemindBtn');
+const updateViewGithubBtn = document.getElementById('updateViewGithubBtn');
 const updateProgressWrap = document.getElementById('updateProgressWrap');
 const updateProgressFill = document.getElementById('updateProgressFill');
 const updateProgressText = document.getElementById('updateProgressText');
@@ -71,7 +72,8 @@ let gameForSteamSetup = null;
 
 let updateUiState = {
   visible: false,
-  installing: false
+  installing: false,
+  releaseUrl: ''
 };
 
 // Settings & Quest Timer
@@ -830,9 +832,11 @@ function showUpdateModal(payload) {
 
   updateUiState.visible = true;
   updateUiState.installing = false;
+  updateUiState.releaseUrl = payload.releaseUrl || 'https://github.com/Morphy137/ds-fake-game-launcher/releases/latest';
 
   updateInstallBtn.disabled = false;
   updateRemindBtn.disabled = false;
+  if (updateViewGithubBtn) updateViewGithubBtn.disabled = false;
   updateInstallBtn.textContent = 'Install update';
 
   const version = payload.version ? `v${payload.version}` : 'New version';
@@ -1217,6 +1221,14 @@ if (updateRemindBtn) {
   });
 }
 
+if (updateViewGithubBtn) {
+  updateViewGithubBtn.addEventListener('click', () => {
+    if (updateUiState.releaseUrl && launcherApi.openExternal) {
+      launcherApi.openExternal(updateUiState.releaseUrl);
+    }
+  });
+}
+
 if (updateInstallBtn) {
   updateInstallBtn.addEventListener('click', async () => {
     if (updateUiState.installing) return;
@@ -1480,6 +1492,7 @@ if (settingsSaveBtn) {
 const btnCheckUpdatesManual = document.getElementById('btnCheckUpdatesManual');
 const updateStatusText = document.getElementById('updateStatusText');
 const appVersionLabel = document.getElementById('appVersionLabel');
+let manualUpdateReleaseUrl = '';
 
 if (launcherApi.getAppVersion && appVersionLabel) {
   launcherApi.getAppVersion().then((ver) => {
@@ -1489,6 +1502,10 @@ if (launcherApi.getAppVersion && appVersionLabel) {
 
 if (btnCheckUpdatesManual) {
   btnCheckUpdatesManual.addEventListener('click', async () => {
+    if (manualUpdateReleaseUrl) {
+      if (launcherApi.openExternal) launcherApi.openExternal(manualUpdateReleaseUrl);
+      return;
+    }
     btnCheckUpdatesManual.disabled = true;
     btnCheckUpdatesManual.textContent = 'Checking…';
     if (updateStatusText) updateStatusText.textContent = 'Checking GitHub Releases…';
@@ -1497,16 +1514,16 @@ if (btnCheckUpdatesManual) {
       const res = await launcherApi.checkForUpdatesManual();
       if (res.ok) {
         if (res.updateAvailable) {
+          const displayVersion = String(res.latestTag || '').replace(/^(?:release_|v)/i, '');
           if (updateStatusText) {
-            updateStatusText.innerHTML = `<span style="color:var(--success); font-weight:600;">Update ${res.latestTag} available!</span>`;
+            updateStatusText.innerHTML = `<span style="color:var(--success); font-weight:600;">Update v${displayVersion} available.</span>`;
           }
           btnCheckUpdatesManual.textContent = 'Download on GitHub';
           btnCheckUpdatesManual.disabled = false;
-          btnCheckUpdatesManual.onclick = () => {
-            if (launcherApi.openExternal) launcherApi.openExternal(res.releaseUrl);
-          };
+          manualUpdateReleaseUrl = res.releaseUrl;
           return;
         } else {
+          manualUpdateReleaseUrl = '';
           if (updateStatusText) {
             updateStatusText.innerHTML = `<span style="color:var(--brand); font-weight:600;">You are on the latest version.</span>`;
           }
@@ -1514,11 +1531,13 @@ if (btnCheckUpdatesManual) {
           btnCheckUpdatesManual.disabled = false;
         }
       } else {
+        manualUpdateReleaseUrl = '';
         if (updateStatusText) updateStatusText.textContent = `Status: ${res.error || 'Check completed'}`;
         btnCheckUpdatesManual.textContent = 'Check for Updates';
         btnCheckUpdatesManual.disabled = false;
       }
     } catch (e) {
+      manualUpdateReleaseUrl = '';
       if (updateStatusText) updateStatusText.textContent = 'Could not reach GitHub.';
       btnCheckUpdatesManual.textContent = 'Retry';
       btnCheckUpdatesManual.disabled = false;
@@ -1581,6 +1600,15 @@ launcherApi.onGameExited((payload = {}) => {
       log('Update available.', 'log-success');
     });
   }
+  if (launcherApi.getPendingUpdate) {
+    try {
+      const pendingUpdate = await launcherApi.getPendingUpdate();
+      if (pendingUpdate && !updateUiState.visible) {
+        showUpdateModal(pendingUpdate);
+        log('Update available.', 'log-success');
+      }
+    } catch {}
+  }
   if (launcherApi.onUpdateProgress) {
     launcherApi.onUpdateProgress((payload) => {
       setUpdateProgress(payload?.percent || 0, payload);
@@ -1598,7 +1626,18 @@ launcherApi.onGameExited((payload = {}) => {
   }
   if (launcherApi.onUpdateError) {
     launcherApi.onUpdateError((payload) => {
-      log(`Update error: ${payload?.message || 'unknown error'}`, 'log-danger');
+      const message = payload?.message || 'unknown error';
+      log(`Update error: ${message}`, 'log-danger');
+      if (updateUiState.visible && updateProgressWrap && updateProgressText) {
+        updateProgressWrap.style.display = 'block';
+        updateProgressText.textContent = `Update failed: ${message}`;
+        updateUiState.installing = false;
+        if (updateInstallBtn) {
+          updateInstallBtn.disabled = false;
+          updateInstallBtn.textContent = 'Retry download';
+        }
+        if (updateRemindBtn) updateRemindBtn.disabled = false;
+      }
     });
   }
 })();

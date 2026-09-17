@@ -76,6 +76,22 @@ function requiresSteamIntegration(databaseGame) {
   return Boolean(databaseGame.usesNewDetection && String(databaseGame.steamAppId || '').trim());
 }
 
+function parseReleaseVersion(value) {
+  const match = String(value || '').trim().match(/^(?:v|release_)?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/i);
+  if (!match) return null;
+  return match.slice(1, 4).map(Number);
+}
+
+function isVersionNewer(candidate, current) {
+  const next = parseReleaseVersion(candidate);
+  const installed = parseReleaseVersion(current);
+  if (!next || !installed) return false;
+  for (let i = 0; i < 3; i++) {
+    if (next[i] !== installed[i]) return next[i] > installed[i];
+  }
+  return false;
+}
+
 function getGameCoverCandidates(game) {
   if (!game || typeof game !== 'object') return [];
   const candidates = [];
@@ -124,6 +140,8 @@ module.exports = {
   calculateQuestTimerState,
   formatTrayStatus,
   requiresSteamIntegration,
+  parseReleaseVersion,
+  isVersionNewer,
   getGameCoverCandidates,
   resolveGameCoverUrl
 };

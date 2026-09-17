@@ -5,7 +5,7 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const { spawn } = require('child_process');
-const { makeGameKey, formatTrayStatus, requiresSteamIntegration } = require('./launcher-state');
+const { makeGameKey, formatTrayStatus, requiresSteamIntegration, isVersionNewer } = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
 
@@ -416,14 +416,15 @@ async function maybeCheckForUpdates() {
   autoUpdater.on('update-available', (info) => {
     // No persisted dismissal: if the user picks "remind later", the update
     // prompt will simply reappear the next time the app starts and checks.
-    pendingUpdateInfo = info;
     const payload = {
       version: String(info?.version || ''),
       releaseName: String(info?.releaseName || ''),
       releaseDate: info?.releaseDate ? String(info.releaseDate) : '',
-      releaseNotes: coerceReleaseNotesToText(info?.releaseNotes)
+      releaseNotes: coerceReleaseNotesToText(info?.releaseNotes),
+      releaseUrl: 'https://github.com/Morphy137/ds-fake-game-launcher/releases/latest'
     };
 
+    pendingUpdateInfo = payload;
     mainWindow?.webContents.send('update/available', payload);
   });
 
@@ -693,9 +694,8 @@ ipcMain.handle('app/checkForUpdatesManual', async () => {
     }
     const data = await res.json();
     const latestTag = String(data.tag_name || '').trim();
-    const cleanTag = latestTag.replace(/^v/, '');
     const currentVer = app.getVersion();
-    const isNewer = cleanTag && cleanTag !== currentVer;
+    const isNewer = isVersionNewer(latestTag, currentVer);
 
     return {
       ok: true,
@@ -1252,6 +1252,10 @@ ipcMain.handle('update/quitAndInstall', async () => {
   } catch (e) {
     return { ok: false, error: String(e?.message || e || 'Failed to install update') };
   }
+});
+
+ipcMain.handle('update/getPending', async () => {
+  return pendingUpdateInfo;
 });
 
 ipcMain.handle('app/window/toggleMaximize', () => {

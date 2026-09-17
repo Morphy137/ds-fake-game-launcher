@@ -114,6 +114,17 @@ test('requiresSteamIntegration only flags new detection games with a Steam app i
   assert.equal(requiresSteamIntegration(null), false);
 });
 
+test('isVersionNewer supports release and v-prefixed GitHub tags', () => {
+  const { parseReleaseVersion, isVersionNewer } = require('../src/launcher-state');
+
+  assert.deepEqual(parseReleaseVersion('release_1.2.3'), [1, 2, 3]);
+  assert.deepEqual(parseReleaseVersion('v2.0.1'), [2, 0, 1]);
+  assert.equal(isVersionNewer('release_1.2.4', '1.2.3'), true);
+  assert.equal(isVersionNewer('release_1.2.3', '1.2.3'), false);
+  assert.equal(isVersionNewer('release_1.1.9', '1.2.3'), false);
+  assert.equal(isVersionNewer('not-a-version', '1.2.3'), false);
+});
+
 test('resolveGameCoverUrl resolves Steam, Discord Cover, Discord Icon, and null', () => {
   const { resolveGameCoverUrl, getGameCoverCandidates } = require('../src/launcher-state');
 
