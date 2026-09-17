@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - 'release_*'
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 0.2.1)'
+        required: true
+        default: '0.2.1'
 
 permissions:
   contents: write
@@ -26,33 +33,36 @@ jobs:
         with:
           node-version: '20.x'
 
-      - name: Extract version from tag
+      - name: Extract version
         id: ver
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          if ($tag -match '^release_(\d+\.\d+\.\d+)$') {
-            $version = $Matches[1]
-            "version=$version" >> $env:GITHUB_OUTPUT
-            Write-Host "Version: $version"
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $raw = '${{ github.event.inputs.version }}'
+            $version = $raw -replace '^(?:release_|v)', ''
+            $tagName = "v$version"
           } else {
-            Write-Error "Tag '$tag' does not match release_X.Y.Z"
-            exit 1
+            $tag = "${{ github.ref_name }}"
+            if ($tag -match '^(?:release_|v)?(\d+\.\d+\.\d+)$') {
+              $version = $Matches[1]
+              $tagName = $tag
+            } else {
+              Write-Error "Tag '$tag' does not match release_X.Y.Z or vX.Y.Z"
+              exit 1
+            }
           }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag_name=$tagName" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version, Tag: $tagName"
 
-      - name: Create GitHub Release
+      - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Discord Fake Game Launcher ${{ steps.ver.outputs.version }}
+          tag_name: ${{ steps.ver.outputs.tag_name }}
+          name: Discord Fake Game Launcher v${{ steps.ver.outputs.version }}
           generate_release_notes: true
           draft: false
           prerelease: false
-
-      - name: Publish DummyGame for bundling
-        run: |
-          dotnet restore ./src/DummyGame/DummyGame.csproj
-          dotnet publish ./src/DummyGame/DummyGame.csproj -c Release -o ./electron/build-resources/dummygame --no-restore
 
       - name: Install Electron dependencies
         run: |
