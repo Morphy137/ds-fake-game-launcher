@@ -74,6 +74,27 @@ test('calculateTimerProgress calculates progress, remaining, and completion', ()
   assert.equal(finished.percent, 100);
 });
 
+test('calculateQuestTimerState separates quest time from the sync buffer', () => {
+  const { calculateQuestTimerState } = require('../src/launcher-state');
+  const start = 1000000;
+  const target = 15 * 60 * 1000;
+  const buffer = 60 * 1000;
+
+  const playing = calculateQuestTimerState(start, target, buffer, start + (14 * 60 * 1000));
+  assert.equal(playing.phase, 'playing');
+  assert.equal(playing.remaining, 2 * 60 * 1000);
+
+  const syncing = calculateQuestTimerState(start, target, buffer, start + target + 15000);
+  assert.equal(syncing.phase, 'syncing');
+  assert.equal(syncing.remaining, 45000);
+  assert.equal(syncing.targetRemaining, 0);
+
+  const complete = calculateQuestTimerState(start, target, buffer, start + target + buffer);
+  assert.equal(complete.phase, 'complete');
+  assert.equal(complete.remaining, 0);
+  assert.equal(complete.percent, 100);
+});
+
 test('formatTrayStatus handles single, multiple, and empty games', () => {
   const { formatTrayStatus } = require('../src/launcher-state');
   assert.equal(formatTrayStatus(0), 'No games running');
@@ -82,6 +103,26 @@ test('formatTrayStatus handles single, multiple, and empty games', () => {
   assert.equal(formatTrayStatus(1), 'Running: Game');
   assert.equal(formatTrayStatus(2), 'Running: 2 games');
   assert.equal(formatTrayStatus(5), 'Running: 5 games');
+});
+
+test('requiresSteamIntegration only flags new detection games with a Steam app id', () => {
+  const { requiresSteamIntegration } = require('../src/launcher-state');
+
+  assert.equal(requiresSteamIntegration({ usesNewDetection: true, steamAppId: '3787240' }), true);
+  assert.equal(requiresSteamIntegration({ usesNewDetection: false, steamAppId: '3787240' }), false);
+  assert.equal(requiresSteamIntegration({ usesNewDetection: true, steamAppId: null }), false);
+  assert.equal(requiresSteamIntegration(null), false);
+});
+
+test('isVersionNewer supports release and v-prefixed GitHub tags', () => {
+  const { parseReleaseVersion, isVersionNewer } = require('../src/launcher-state');
+
+  assert.deepEqual(parseReleaseVersion('release_1.2.3'), [1, 2, 3]);
+  assert.deepEqual(parseReleaseVersion('v2.0.1'), [2, 0, 1]);
+  assert.equal(isVersionNewer('release_1.2.4', '1.2.3'), true);
+  assert.equal(isVersionNewer('release_1.2.3', '1.2.3'), false);
+  assert.equal(isVersionNewer('release_1.1.9', '1.2.3'), false);
+  assert.equal(isVersionNewer('not-a-version', '1.2.3'), false);
 });
 
 test('resolveGameCoverUrl resolves Steam, Discord Cover, Discord Icon, and null', () => {

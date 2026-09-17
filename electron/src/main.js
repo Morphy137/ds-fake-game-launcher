@@ -5,17 +5,19 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const { spawn } = require('child_process');
-const { makeGameKey, formatTrayStatus } = require('./launcher-state');
+const { makeGameKey, formatTrayStatus, requiresSteamIntegration, isVersionNewer } = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
 
 const DEFAULT_SETTINGS = {
   questTimerEnabled: true,
   questDurationMinutes: 15,
+  questSyncBufferSeconds: 60,
   autoStopOnComplete: true,
   notifyOnComplete: true,
   minimizeToTray: true,
-  preferredViewMode: 'list'
+  preferredViewMode: 'grid',
+  cardSize: 'medium'
 };
 
 // In-memory cache to avoid re-reading/parsing large gamelist.json on every search.
@@ -414,14 +416,15 @@ async function maybeCheckForUpdates() {
   autoUpdater.on('update-available', (info) => {
     // No persisted dismissal: if the user picks "remind later", the update
     // prompt will simply reappear the next time the app starts and checks.
-    pendingUpdateInfo = info;
     const payload = {
       version: String(info?.version || ''),
       releaseName: String(info?.releaseName || ''),
       releaseDate: info?.releaseDate ? String(info.releaseDate) : '',
-      releaseNotes: coerceReleaseNotesToText(info?.releaseNotes)
+      releaseNotes: coerceReleaseNotesToText(info?.releaseNotes),
+      releaseUrl: 'https://github.com/Morphy137/ds-fake-game-launcher/releases/latest'
     };
 
+    pendingUpdateInfo = payload;
     mainWindow?.webContents.send('update/available', payload);
   });
 
@@ -620,6 +623,13 @@ async function createWindow() {
   });
 
   await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  const sendMaximizedState = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('app/window/maximizedChanged', mainWindow.isMaximized());
+  };
+  mainWindow.on('maximize', sendMaximizedState);
+  mainWindow.on('unmaximize', sendMaximizedState);
 }
 
 app.whenReady().then(async () => {
@@ -684,9 +694,8 @@ ipcMain.handle('app/checkForUpdatesManual', async () => {
     }
     const data = await res.json();
     const latestTag = String(data.tag_name || '').trim();
-    const cleanTag = latestTag.replace(/^v/, '');
     const currentVer = app.getVersion();
-    const isNewer = cleanTag && cleanTag !== currentVer;
+    const isNewer = isVersionNewer(latestTag, currentVer);
 
     return {
       ok: true,
@@ -738,21 +747,22 @@ ipcMain.handle('launcher/getMyGames', async () => {
       if (g && typeof g === 'object') {
         const dbEntry = databaseCache.games.find(db => String(db.id) === String(g.appId));
         if (dbEntry) {
-          if (!g.coverImageHash && dbEntry.cover_image_hash) {
-            g.coverImageHash = dbEntry.cover_image_hash;
+          if (!g.coverImageHash && dbEntry.coverImageHash) {
+            g.coverImageHash = dbEntry.coverImageHash;
             changed = true;
           }
-          if (!g.iconHash && dbEntry.icon_hash) {
-            g.iconHash = dbEntry.icon_hash;
+          if (!g.iconHash && dbEntry.iconHash) {
+            g.iconHash = dbEntry.iconHash;
             changed = true;
           }
-          const steamSku = dbEntry.third_party_skus?.find(sku => sku?.distributor === 'steam');
-          if (!g.steamAppId && steamSku?.id) {
-            g.steamAppId = String(steamSku.id);
+          if (!g.steamAppId && dbEntry.steamAppId) {
+            g.steamAppId = String(dbEntry.steamAppId);
             changed = true;
           }
-          const hasNoExe = !dbEntry.executables || dbEntry.executables.length === 0;
-          const isRequired = Boolean(hasNoExe && (g.steamAppId || steamSku?.id));
+          const isRequired = requiresSteamIntegration({
+            usesNewDetection: dbEntry.usesNewDetection,
+            steamAppId: g.steamAppId || dbEntry.steamAppId
+          });
           if (g.requiresSteam !== isRequired) {
             g.requiresSteam = isRequired;
             changed = true;
@@ -787,9 +797,11 @@ ipcMain.handle('launcher/addGame', async (_evt, game) => {
   const safeList = Array.isArray(myGames) ? myGames : [];
 
   const dbEntry = databaseCache.games.find(db => String(db.id) === String(game?.id));
-  const hasNoExe = !dbEntry || !dbEntry.executables || dbEntry.executables.length === 0;
-  const steamAppId = game?.steamAppId || dbEntry?.third_party_skus?.find(s => s.distributor === 'steam')?.id || null;
-  const isRequired = Boolean(hasNoExe && steamAppId);
+  const steamAppId = game?.steamAppId || dbEntry?.steamAppId || null;
+  const isRequired = requiresSteamIntegration({
+    usesNewDetection: game?.usesNewDetection ?? dbEntry?.usesNewDetection,
+    steamAppId
+  });
 
   const entry = {
     appId: String(game?.id || ''),
@@ -797,8 +809,8 @@ ipcMain.handle('launcher/addGame', async (_evt, game) => {
     exe: String(game?.exe || ''),
     isFavorite: false,
     steamAppId: steamAppId ? String(steamAppId) : null,
-    iconHash: game?.iconHash ? String(game.iconHash) : (dbEntry?.icon_hash || null),
-    coverImageHash: game?.coverImageHash ? String(game.coverImageHash) : (dbEntry?.cover_image_hash || null),
+    iconHash: game?.iconHash ? String(game.iconHash) : (dbEntry?.iconHash || null),
+    coverImageHash: game?.coverImageHash ? String(game.coverImageHash) : (dbEntry?.coverImageHash || null),
     requiresSteam: isRequired
   };
 
@@ -1240,4 +1252,22 @@ ipcMain.handle('update/quitAndInstall', async () => {
   } catch (e) {
     return { ok: false, error: String(e?.message || e || 'Failed to install update') };
   }
+});
+
+ipcMain.handle('update/getPending', async () => {
+  return pendingUpdateInfo;
+});
+
+ipcMain.handle('app/window/toggleMaximize', () => {
+  if (!mainWindow) return false;
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize();
+  } else {
+    mainWindow.maximize();
+  }
+  return mainWindow.isMaximized();
+});
+
+ipcMain.handle('app/window/isMaximized', () => {
+  return Boolean(mainWindow?.isMaximized());
 });

@@ -3,7 +3,13 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('launcherApi', {
   // Window
   minimize: () => ipcRenderer.invoke('app/window/minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('app/window/toggleMaximize'),
+  isMaximized: () => ipcRenderer.invoke('app/window/isMaximized'),
   close: () => ipcRenderer.invoke('app/window/close'),
+  onMaximizedChanged: (handler) => {
+    ipcRenderer.removeAllListeners('app/window/maximizedChanged');
+    ipcRenderer.on('app/window/maximizedChanged', (_evt, maximized) => handler(Boolean(maximized)));
+  },
 
   // Data
   syncGameList: () => ipcRenderer.invoke('launcher/syncGameList'),
@@ -40,6 +46,7 @@ contextBridge.exposeInMainWorld('launcherApi', {
   checkForUpdatesManual: () => ipcRenderer.invoke('app/checkForUpdatesManual'),
   installUpdate: () => ipcRenderer.invoke('update/install'),
   remindUpdateLater: () => ipcRenderer.invoke('update/remindLater'),
+  getPendingUpdate: () => ipcRenderer.invoke('update/getPending'),
   quitAndInstallUpdate: () => ipcRenderer.invoke('update/quitAndInstall'),
   onUpdateAvailable: (handler) => {
     ipcRenderer.removeAllListeners('update/available');

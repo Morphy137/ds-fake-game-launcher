@@ -37,6 +37,7 @@ const updateSubtitle = document.getElementById('updateSubtitle');
 const updateNotes = document.getElementById('updateNotes');
 const updateInstallBtn = document.getElementById('updateInstallBtn');
 const updateRemindBtn = document.getElementById('updateRemindBtn');
+const updateViewGithubBtn = document.getElementById('updateViewGithubBtn');
 const updateProgressWrap = document.getElementById('updateProgressWrap');
 const updateProgressFill = document.getElementById('updateProgressFill');
 const updateProgressText = document.getElementById('updateProgressText');
@@ -71,20 +72,23 @@ let gameForSteamSetup = null;
 
 let updateUiState = {
   visible: false,
-  installing: false
+  installing: false,
+  releaseUrl: ''
 };
 
 // Settings & Quest Timer
 const settingsModal = document.getElementById('settingsModal');
-const settingsBtn = document.getElementById('settingsBtn');
+const settingsButtons = document.querySelectorAll('.settings-trigger');
 const settingsCloseBtn = document.getElementById('settingsCloseBtn');
 const settingsCancelBtn = document.getElementById('settingsCancelBtn');
 const settingsSaveBtn = document.getElementById('settingsSaveBtn');
 const settingQuestTimerEnabled = document.getElementById('settingQuestTimerEnabled');
 const settingQuestDuration = document.getElementById('settingQuestDuration');
+const settingQuestSyncBuffer = document.getElementById('settingQuestSyncBuffer');
 const settingAutoStop = document.getElementById('settingAutoStop');
 const settingNotify = document.getElementById('settingNotify');
 const settingMinimizeToTray = document.getElementById('settingMinimizeToTray');
+const settingCardSize = document.getElementById('settingCardSize');
 const questTimerBadge = document.getElementById('questTimerBadge');
 const questTimerText = document.getElementById('questTimerText');
 
@@ -95,6 +99,7 @@ const heroSection = document.getElementById('heroSection');
 const gridSection = document.getElementById('gridSection');
 const mainGamesGrid = document.getElementById('mainGamesGrid');
 const gridGameCount = document.getElementById('gridGameCount');
+const activeGameCount = document.getElementById('activeGameCount');
 const gridEmptyState = document.getElementById('gridEmptyState');
 const btnBackToGrid = document.getElementById('btnBackToGrid');
 const viewModeListBtn = document.getElementById('viewModeListBtn');
@@ -103,18 +108,22 @@ const gridSearchInput = document.getElementById('gridSearchInput');
 const gridOpenAddModalBtn = document.getElementById('gridOpenAddModalBtn');
 const gridToggleListBtn = document.getElementById('gridToggleListBtn');
 const gridToggleGridBtn = document.getElementById('gridToggleGridBtn');
-let currentViewMode = 'list';
+const CARD_SIZES = ['compact', 'medium', 'large'];
+let currentViewMode = 'grid';
+let currentCardSize = 'medium';
 
 let appSettings = {
   questTimerEnabled: true,
   questDurationMinutes: 15,
+  questSyncBufferSeconds: 60,
   autoStopOnComplete: true,
   notifyOnComplete: true,
   minimizeToTray: true,
-  preferredViewMode: 'list'
+  preferredViewMode: 'grid',
+  cardSize: 'medium'
 };
 
-const activeQuestTimers = new Map(); // key -> { startTime, durationMs, game, notified }
+const activeQuestTimers = new Map(); // key -> { startTime, targetDurationMs, syncBufferMs, game, notified }
 
 function formatTimerRemaining(remainingMs) {
   const totalSeconds = Math.max(0, Math.floor((remainingMs || 0) / 1000));
@@ -189,16 +198,13 @@ function updateQuestTimerDisplay() {
     return;
   }
 
-  const remaining = Math.max(0, timer.durationMs - (Date.now() - timer.startTime));
+  const state = getQuestTimerState(timer);
   questTimerBadge.style.display = 'inline-flex';
-
-  if (remaining > 0) {
-    questTimerBadge.classList.remove('completed');
-    questTimerText.textContent = formatTimerRemaining(remaining);
-  } else {
-    questTimerBadge.classList.add('completed');
-    questTimerText.textContent = '00:00';
-  }
+  questTimerBadge.classList.toggle('syncing', state.phase === 'syncing');
+  questTimerBadge.classList.toggle('completed', state.phase === 'complete');
+  questTimerText.textContent = state.phase === 'syncing'
+    ? `Syncing ${formatTimerRemaining(state.remaining)}`
+    : state.phase === 'complete' ? 'Complete' : formatTimerRemaining(state.remaining);
 }
 
 // Tick quest timers every second
@@ -207,16 +213,15 @@ setInterval(() => {
 
   const now = Date.now();
   for (const [key, timer] of Array.from(activeQuestTimers.entries())) {
-    const elapsed = now - timer.startTime;
-    const remaining = Math.max(0, timer.durationMs - elapsed);
+    const state = getQuestTimerState(timer, now);
 
-    if (remaining <= 0) {
+    if (state.phase === 'complete') {
       if (appSettings.autoStopOnComplete) {
-        log(`[Quest Timer] ${timer.game.name} completed ${appSettings.questDurationMinutes}m quest. Auto-stopping process...`, 'log-success');
+        log(`[Quest Timer] ${timer.game.name} completed the quest and Discord sync buffer. Auto-stopping process...`, 'log-success');
         if (appSettings.notifyOnComplete && launcherApi.sendNotification) {
           launcherApi.sendNotification({
             title: 'Discord Quest Complete!',
-            body: `${timer.game.name} has finished the ${appSettings.questDurationMinutes}-minute quest and was closed.`
+            body: `${timer.game.name} finished the quest and Discord sync buffer, then closed automatically.`
           });
         }
         activeQuestTimers.delete(key);
@@ -237,14 +242,17 @@ setInterval(() => {
   }
 
   updateQuestTimerDisplay();
+  updateGridQuestTimers(now);
 }, 1000);
 
 function openSettingsModal() {
   if (settingQuestTimerEnabled) settingQuestTimerEnabled.checked = Boolean(appSettings.questTimerEnabled);
   if (settingQuestDuration) settingQuestDuration.value = String(appSettings.questDurationMinutes || 15);
+  if (settingQuestSyncBuffer) settingQuestSyncBuffer.value = String(appSettings.questSyncBufferSeconds ?? 60);
   if (settingAutoStop) settingAutoStop.checked = Boolean(appSettings.autoStopOnComplete);
   if (settingNotify) settingNotify.checked = Boolean(appSettings.notifyOnComplete);
   if (settingMinimizeToTray) settingMinimizeToTray.checked = Boolean(appSettings.minimizeToTray !== false);
+  if (settingCardSize) settingCardSize.value = currentCardSize;
   if (settingsModal) settingsModal.style.display = 'flex';
 }
 
@@ -364,6 +372,11 @@ function renderGridView(filter = '') {
   if (gridGameCount) {
     gridGameCount.textContent = `(${matchedGames.length})`;
   }
+  if (activeGameCount) {
+    const activeCount = myGames.filter(isGameRunning).length;
+    activeGameCount.hidden = activeCount === 0;
+    activeGameCount.textContent = `${activeCount} active`;
+  }
 
   if (matchedGames.length === 0) {
     if (gridEmptyState) gridEmptyState.style.display = 'flex';
@@ -374,11 +387,16 @@ function renderGridView(filter = '') {
 
   for (const game of matchedGames) {
     const isRunning = isGameRunning(game);
+    const gameKey = makeGameKey(game);
+    const timerState = getQuestTimerState(activeQuestTimers.get(gameKey));
     const candidates = getGameCoverCandidates(game);
     const initials = getGameInitials(game.name);
 
     const card = document.createElement('div');
     card.className = `game-card ${selectedGame === game ? 'active' : ''} ${isRunning ? 'running' : ''}`;
+    card.dataset.gameKey = gameKey;
+    if (timerState?.phase === 'syncing') card.classList.add('syncing');
+    if (timerState?.phase === 'complete') card.classList.add('quest-complete');
 
     const playBtnSvg = isRunning
       ? `<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>`
@@ -389,12 +407,13 @@ function renderGridView(filter = '') {
         ${isRunning ? `
           <div class="game-card-badge">
             <span class="game-card-badge-dot"></span>
-            <span>Playing</span>
+            <span class="game-card-status-label">${timerState?.phase === 'syncing' ? 'Syncing' : timerState?.phase === 'complete' ? 'Complete' : 'Playing'}</span>
+            ${timerState ? `<span class="game-card-timer">${formatTimerRemaining(timerState.remaining)}</span>` : ''}
           </div>` : ''}
 
-        <div class="game-card-fav ${game.isFavorite ? 'active' : ''}" title="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+        <button type="button" class="game-card-fav ${game.isFavorite ? 'active' : ''}" title="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}" aria-label="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
           ${starSvg}
-        </div>
+        </button>
 
         ${candidates.length > 0 ? `
           <img class="game-card-poster" src="${candidates[0]}" alt="${game.name}" loading="lazy" />
@@ -414,6 +433,7 @@ function renderGridView(filter = '') {
             ${playBtnSvg}
           </button>
         </div>
+        ${isRunning && timerState ? `<div class="game-card-progress"><div class="game-card-progress-fill" style="transform: scaleX(${timerState.percent / 100})"></div></div>` : ''}
       </div>
 
       <div class="game-card-info">
@@ -504,13 +524,54 @@ function setViewMode(mode) {
   }
 }
 
-// Synchronous instant view restoration before any async calls or network sync
-try {
-  const savedMode = localStorage.getItem('preferredViewMode');
-  if (savedMode === 'grid') {
-    setViewMode('grid');
+function getQuestTimerState(timer, now = Date.now()) {
+  if (!timer) return null;
+  const targetDurationMs = Math.max(0, Number(timer.targetDurationMs) || 0);
+  const syncBufferMs = Math.max(0, Number(timer.syncBufferMs) || 0);
+  const totalDurationMs = targetDurationMs + syncBufferMs;
+  const elapsed = Math.max(0, now - timer.startTime);
+  const remaining = Math.max(0, totalDurationMs - elapsed);
+  const phase = elapsed >= totalDurationMs ? 'complete' : elapsed >= targetDurationMs ? 'syncing' : 'playing';
+  const percent = totalDurationMs > 0 ? Math.min(100, Math.max(0, (elapsed / totalDurationMs) * 100)) : 100;
+  return { remaining, phase, percent };
+}
+
+function updateGridQuestTimers(now = Date.now()) {
+  if (!mainGamesGrid) return;
+  for (const card of mainGamesGrid.querySelectorAll('.game-card[data-game-key]')) {
+    const state = getQuestTimerState(activeQuestTimers.get(card.dataset.gameKey), now);
+    const label = card.querySelector('.game-card-status-label');
+    const timerText = card.querySelector('.game-card-timer');
+    const progress = card.querySelector('.game-card-progress-fill');
+
+    card.classList.toggle('syncing', state?.phase === 'syncing');
+    card.classList.toggle('quest-complete', state?.phase === 'complete');
+    if (label) label.textContent = state?.phase === 'syncing' ? 'Syncing' : state?.phase === 'complete' ? 'Complete' : 'Playing';
+    if (timerText) timerText.textContent = state ? formatTimerRemaining(state.remaining) : '';
+    if (progress) progress.style.transform = `scaleX(${state ? state.percent / 100 : 0})`;
   }
+}
+
+function setCardSize(size, persist = true) {
+  const normalizedSize = CARD_SIZES.includes(size) ? size : 'medium';
+  currentCardSize = normalizedSize;
+  appSettings.cardSize = normalizedSize;
+  if (mainGamesGrid) mainGamesGrid.dataset.cardSize = normalizedSize;
+
+  if (!persist) return;
+  try { localStorage.setItem('cardSize', normalizedSize); } catch {}
+  if (launcherApi.saveSettings) launcherApi.saveSettings(appSettings).catch(() => {});
+}
+
+// Synchronous instant view restoration before any async calls or network sync
+let savedViewMode = null;
+let savedCardSize = null;
+try {
+  savedViewMode = localStorage.getItem('preferredViewMode');
+  savedCardSize = localStorage.getItem('cardSize');
 } catch {}
+setViewMode(savedViewMode === 'list' || savedViewMode === 'grid' ? savedViewMode : currentViewMode);
+setCardSize(CARD_SIZES.includes(savedCardSize) ? savedCardSize : currentCardSize, false);
 
 function showHeroDetailsFromGrid() {
   if (gridSection) gridSection.style.display = 'none';
@@ -767,9 +828,11 @@ function showUpdateModal(payload) {
 
   updateUiState.visible = true;
   updateUiState.installing = false;
+  updateUiState.releaseUrl = payload.releaseUrl || 'https://github.com/Morphy137/ds-fake-game-launcher/releases/latest';
 
   updateInstallBtn.disabled = false;
   updateRemindBtn.disabled = false;
+  if (updateViewGithubBtn) updateViewGithubBtn.disabled = false;
   updateInstallBtn.textContent = 'Install update';
 
   const version = payload.version ? `v${payload.version}` : 'New version';
@@ -1047,10 +1110,12 @@ launchBtn.addEventListener('click', async () => {
     if (r.ok) {
       runningGames.add(selectedKey);
       if (appSettings.questTimerEnabled) {
-        const durationMs = (appSettings.questDurationMinutes || 15) * 60 * 1000;
+        const targetDurationMs = (appSettings.questDurationMinutes || 15) * 60 * 1000;
+        const syncBufferMs = Math.max(0, Number(appSettings.questSyncBufferSeconds) || 0) * 1000;
         activeQuestTimers.set(selectedKey, {
           startTime: Date.now(),
-          durationMs,
+          targetDurationMs,
+          syncBufferMs,
           game: selectedGame,
           notified: false
         });
@@ -1137,6 +1202,14 @@ if (updateRemindBtn) {
   updateRemindBtn.addEventListener('click', async () => {
     await launcherApi.remindUpdateLater();
     hideUpdateModal();
+  });
+}
+
+if (updateViewGithubBtn) {
+  updateViewGithubBtn.addEventListener('click', () => {
+    if (updateUiState.releaseUrl && launcherApi.openExternal) {
+      launcherApi.openExternal(updateUiState.releaseUrl);
+    }
   });
 }
 
@@ -1369,23 +1442,30 @@ if (detailSteamItem) {
 
 // Window controls
 const minBtn = document.getElementById('minBtn');
+const maxBtn = document.getElementById('maxBtn');
 const closeBtn = document.getElementById('closeBtn');
 minBtn.addEventListener('click', () => launcherApi.minimize());
+maxBtn.addEventListener('click', () => launcherApi.toggleMaximize());
 closeBtn.addEventListener('click', () => launcherApi.close());
 
-if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
+for (const button of settingsButtons) button.addEventListener('click', openSettingsModal);
 if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsModal);
 if (settingsCancelBtn) settingsCancelBtn.addEventListener('click', closeSettingsModal);
 
 if (settingsSaveBtn) {
   settingsSaveBtn.addEventListener('click', async () => {
     appSettings = {
+      ...appSettings,
       questTimerEnabled: settingQuestTimerEnabled ? settingQuestTimerEnabled.checked : true,
       questDurationMinutes: settingQuestDuration ? parseInt(settingQuestDuration.value, 10) || 15 : 15,
+      questSyncBufferSeconds: settingQuestSyncBuffer ? parseInt(settingQuestSyncBuffer.value, 10) || 0 : 60,
       autoStopOnComplete: settingAutoStop ? settingAutoStop.checked : true,
       notifyOnComplete: settingNotify ? settingNotify.checked : true,
-      minimizeToTray: settingMinimizeToTray ? settingMinimizeToTray.checked : true
+      minimizeToTray: settingMinimizeToTray ? settingMinimizeToTray.checked : true,
+      cardSize: settingCardSize && CARD_SIZES.includes(settingCardSize.value) ? settingCardSize.value : 'medium'
     };
+    setCardSize(appSettings.cardSize, false);
+    try { localStorage.setItem('cardSize', appSettings.cardSize); } catch {}
     if (launcherApi.saveSettings) {
       await launcherApi.saveSettings(appSettings);
     }
@@ -1399,6 +1479,7 @@ if (settingsSaveBtn) {
 const btnCheckUpdatesManual = document.getElementById('btnCheckUpdatesManual');
 const updateStatusText = document.getElementById('updateStatusText');
 const appVersionLabel = document.getElementById('appVersionLabel');
+let manualUpdateReleaseUrl = '';
 
 if (launcherApi.getAppVersion && appVersionLabel) {
   launcherApi.getAppVersion().then((ver) => {
@@ -1408,6 +1489,10 @@ if (launcherApi.getAppVersion && appVersionLabel) {
 
 if (btnCheckUpdatesManual) {
   btnCheckUpdatesManual.addEventListener('click', async () => {
+    if (manualUpdateReleaseUrl) {
+      if (launcherApi.openExternal) launcherApi.openExternal(manualUpdateReleaseUrl);
+      return;
+    }
     btnCheckUpdatesManual.disabled = true;
     btnCheckUpdatesManual.textContent = 'Checking…';
     if (updateStatusText) updateStatusText.textContent = 'Checking GitHub Releases…';
@@ -1416,28 +1501,34 @@ if (btnCheckUpdatesManual) {
       const res = await launcherApi.checkForUpdatesManual();
       if (res.ok) {
         if (res.updateAvailable) {
+          const displayVersion = String(res.latestTag || '').replace(/^(?:release_|v)/i, '');
           if (updateStatusText) {
-            updateStatusText.innerHTML = `<span style="color:var(--success); font-weight:600;">Update ${res.latestTag} available!</span>`;
+            updateStatusText.textContent = `Update v${displayVersion} available.`;
+            updateStatusText.style.color = 'var(--success)';
+            updateStatusText.style.fontWeight = '600';
           }
           btnCheckUpdatesManual.textContent = 'Download on GitHub';
           btnCheckUpdatesManual.disabled = false;
-          btnCheckUpdatesManual.onclick = () => {
-            if (launcherApi.openExternal) launcherApi.openExternal(res.releaseUrl);
-          };
+          manualUpdateReleaseUrl = res.releaseUrl;
           return;
         } else {
+          manualUpdateReleaseUrl = '';
           if (updateStatusText) {
-            updateStatusText.innerHTML = `<span style="color:var(--brand); font-weight:600;">You are on the latest version.</span>`;
+            updateStatusText.textContent = 'You are on the latest version.';
+            updateStatusText.style.color = 'var(--brand)';
+            updateStatusText.style.fontWeight = '600';
           }
           btnCheckUpdatesManual.textContent = 'Up to Date';
           btnCheckUpdatesManual.disabled = false;
         }
       } else {
+        manualUpdateReleaseUrl = '';
         if (updateStatusText) updateStatusText.textContent = `Status: ${res.error || 'Check completed'}`;
         btnCheckUpdatesManual.textContent = 'Check for Updates';
         btnCheckUpdatesManual.disabled = false;
       }
     } catch (e) {
+      manualUpdateReleaseUrl = '';
       if (updateStatusText) updateStatusText.textContent = 'Could not reach GitHub.';
       btnCheckUpdatesManual.textContent = 'Retry';
       btnCheckUpdatesManual.disabled = false;
@@ -1461,6 +1552,17 @@ launcherApi.onGameExited((payload = {}) => {
 });
 
 (async function init() {
+  const syncMaximizedState = (maximized) => {
+    if (!maxBtn) return;
+    maxBtn.classList.toggle('is-maximized', Boolean(maximized));
+    maxBtn.title = maximized ? 'Restore' : 'Maximize';
+    maxBtn.setAttribute('aria-label', maximized ? 'Restore' : 'Maximize');
+  };
+  if (launcherApi.onMaximizedChanged) launcherApi.onMaximizedChanged(syncMaximizedState);
+  if (launcherApi.isMaximized) {
+    try { syncMaximizedState(await launcherApi.isMaximized()); } catch {}
+  }
+
   if (launcherApi.getSettings) {
     try {
       const s = await launcherApi.getSettings();
@@ -1469,6 +1571,7 @@ launcherApi.onGameExited((payload = {}) => {
         if (s.preferredViewMode && s.preferredViewMode !== currentViewMode) {
           setViewMode(s.preferredViewMode);
         }
+        if (s.cardSize) setCardSize(s.cardSize, false);
       }
     } catch {}
   }
@@ -1488,6 +1591,15 @@ launcherApi.onGameExited((payload = {}) => {
       log('Update available.', 'log-success');
     });
   }
+  if (launcherApi.getPendingUpdate) {
+    try {
+      const pendingUpdate = await launcherApi.getPendingUpdate();
+      if (pendingUpdate && !updateUiState.visible) {
+        showUpdateModal(pendingUpdate);
+        log('Update available.', 'log-success');
+      }
+    } catch {}
+  }
   if (launcherApi.onUpdateProgress) {
     launcherApi.onUpdateProgress((payload) => {
       setUpdateProgress(payload?.percent || 0, payload);
@@ -1505,7 +1617,18 @@ launcherApi.onGameExited((payload = {}) => {
   }
   if (launcherApi.onUpdateError) {
     launcherApi.onUpdateError((payload) => {
-      log(`Update error: ${payload?.message || 'unknown error'}`, 'log-danger');
+      const message = payload?.message || 'unknown error';
+      log(`Update error: ${message}`, 'log-danger');
+      if (updateUiState.visible && updateProgressWrap && updateProgressText) {
+        updateProgressWrap.style.display = 'block';
+        updateProgressText.textContent = `Update failed: ${message}`;
+        updateUiState.installing = false;
+        if (updateInstallBtn) {
+          updateInstallBtn.disabled = false;
+          updateInstallBtn.textContent = 'Retry download';
+        }
+        if (updateRemindBtn) updateRemindBtn.disabled = false;
+      }
     });
   }
 })();
