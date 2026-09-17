@@ -1,7 +1,7 @@
 {
   "name": "discord-fake-game-launcher-ui",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Discord Fake Game Launcher for Quest Tracking",
   "author": "Morphy137",
   "repository": {
@@ -20,7 +20,7 @@
     "dist": "npm run build:dummy && electron-builder --win nsis --publish never",
     "dist:portable": "npm run build:dummy && electron-builder --win portable --publish never",
     "dist:all": "npm run build:dummy && electron-builder --win nsis portable --publish never",
-    "dist:publish": "npm run build:dummy && electron-builder --win nsis --publish always"
+    "dist:publish": "npm run build:dummy && electron-builder --win nsis portable --publish always"
   },
   "devDependencies": {
     "electron": "^30.0.0",
@@ -63,12 +63,17 @@
       }
     ],
     "nsis": {
-      "oneClick": true,
-      "perMachine": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
       "allowElevation": true,
-      "createDesktopShortcut": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
       "shortcutName": "Discord Fake Game Launcher"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
     }
   }
 }
