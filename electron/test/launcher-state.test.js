@@ -84,6 +84,15 @@ test('formatTrayStatus handles single, multiple, and empty games', () => {
   assert.equal(formatTrayStatus(5), 'Running: 5 games');
 });
 
+test('requiresSteamIntegration only flags new detection games with a Steam app id', () => {
+  const { requiresSteamIntegration } = require('../src/launcher-state');
+
+  assert.equal(requiresSteamIntegration({ usesNewDetection: true, steamAppId: '3787240' }), true);
+  assert.equal(requiresSteamIntegration({ usesNewDetection: false, steamAppId: '3787240' }), false);
+  assert.equal(requiresSteamIntegration({ usesNewDetection: true, steamAppId: null }), false);
+  assert.equal(requiresSteamIntegration(null), false);
+});
+
 test('resolveGameCoverUrl resolves Steam, Discord Cover, Discord Icon, and null', () => {
   const { resolveGameCoverUrl, getGameCoverCandidates } = require('../src/launcher-state');
 

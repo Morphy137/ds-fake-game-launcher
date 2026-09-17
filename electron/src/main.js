@@ -5,7 +5,7 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const { spawn } = require('child_process');
-const { makeGameKey, formatTrayStatus } = require('./launcher-state');
+const { makeGameKey, formatTrayStatus, requiresSteamIntegration } = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
 
@@ -738,21 +738,22 @@ ipcMain.handle('launcher/getMyGames', async () => {
       if (g && typeof g === 'object') {
         const dbEntry = databaseCache.games.find(db => String(db.id) === String(g.appId));
         if (dbEntry) {
-          if (!g.coverImageHash && dbEntry.cover_image_hash) {
-            g.coverImageHash = dbEntry.cover_image_hash;
+          if (!g.coverImageHash && dbEntry.coverImageHash) {
+            g.coverImageHash = dbEntry.coverImageHash;
             changed = true;
           }
-          if (!g.iconHash && dbEntry.icon_hash) {
-            g.iconHash = dbEntry.icon_hash;
+          if (!g.iconHash && dbEntry.iconHash) {
+            g.iconHash = dbEntry.iconHash;
             changed = true;
           }
-          const steamSku = dbEntry.third_party_skus?.find(sku => sku?.distributor === 'steam');
-          if (!g.steamAppId && steamSku?.id) {
-            g.steamAppId = String(steamSku.id);
+          if (!g.steamAppId && dbEntry.steamAppId) {
+            g.steamAppId = String(dbEntry.steamAppId);
             changed = true;
           }
-          const hasNoExe = !dbEntry.executables || dbEntry.executables.length === 0;
-          const isRequired = Boolean(hasNoExe && (g.steamAppId || steamSku?.id));
+          const isRequired = requiresSteamIntegration({
+            usesNewDetection: dbEntry.usesNewDetection,
+            steamAppId: g.steamAppId || dbEntry.steamAppId
+          });
           if (g.requiresSteam !== isRequired) {
             g.requiresSteam = isRequired;
             changed = true;
@@ -787,9 +788,11 @@ ipcMain.handle('launcher/addGame', async (_evt, game) => {
   const safeList = Array.isArray(myGames) ? myGames : [];
 
   const dbEntry = databaseCache.games.find(db => String(db.id) === String(game?.id));
-  const hasNoExe = !dbEntry || !dbEntry.executables || dbEntry.executables.length === 0;
-  const steamAppId = game?.steamAppId || dbEntry?.third_party_skus?.find(s => s.distributor === 'steam')?.id || null;
-  const isRequired = Boolean(hasNoExe && steamAppId);
+  const steamAppId = game?.steamAppId || dbEntry?.steamAppId || null;
+  const isRequired = requiresSteamIntegration({
+    usesNewDetection: game?.usesNewDetection ?? dbEntry?.usesNewDetection,
+    steamAppId
+  });
 
   const entry = {
     appId: String(game?.id || ''),
@@ -797,8 +800,8 @@ ipcMain.handle('launcher/addGame', async (_evt, game) => {
     exe: String(game?.exe || ''),
     isFavorite: false,
     steamAppId: steamAppId ? String(steamAppId) : null,
-    iconHash: game?.iconHash ? String(game.iconHash) : (dbEntry?.icon_hash || null),
-    coverImageHash: game?.coverImageHash ? String(game.coverImageHash) : (dbEntry?.cover_image_hash || null),
+    iconHash: game?.iconHash ? String(game.iconHash) : (dbEntry?.iconHash || null),
+    coverImageHash: game?.coverImageHash ? String(game.coverImageHash) : (dbEntry?.coverImageHash || null),
     requiresSteam: isRequired
   };
 

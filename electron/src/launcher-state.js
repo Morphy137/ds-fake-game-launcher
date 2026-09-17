@@ -59,6 +59,11 @@ function formatTrayStatus(runningGamesCount, firstGameName) {
   return `Running: ${count} games`;
 }
 
+function requiresSteamIntegration(databaseGame) {
+  if (!databaseGame || typeof databaseGame !== 'object') return false;
+  return Boolean(databaseGame.usesNewDetection && String(databaseGame.steamAppId || '').trim());
+}
+
 function getGameCoverCandidates(game) {
   if (!game || typeof game !== 'object') return [];
   const candidates = [];
@@ -105,6 +110,7 @@ module.exports = {
   formatTimerRemaining,
   calculateTimerProgress,
   formatTrayStatus,
+  requiresSteamIntegration,
   getGameCoverCandidates,
   resolveGameCoverUrl
 };
