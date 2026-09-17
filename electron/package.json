@@ -63,7 +63,7 @@
       }
     ],
     "nsis": {
-      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "artifactName": "Discord-Fake-Game-Launcher-Setup-${version}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowElevation": true,
@@ -73,7 +73,7 @@
       "shortcutName": "Discord Fake Game Launcher"
     },
     "portable": {
-      "artifactName": "${productName}-Portable-${version}.${ext}"
+      "artifactName": "Discord-Fake-Game-Launcher-Portable-${version}.${ext}"
     }
   }
 }
