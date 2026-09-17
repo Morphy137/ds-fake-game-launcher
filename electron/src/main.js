@@ -15,7 +15,8 @@ const DEFAULT_SETTINGS = {
   autoStopOnComplete: true,
   notifyOnComplete: true,
   minimizeToTray: true,
-  preferredViewMode: 'list'
+  preferredViewMode: 'grid',
+  cardSize: 'medium'
 };
 
 // In-memory cache to avoid re-reading/parsing large gamelist.json on every search.

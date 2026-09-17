@@ -103,7 +103,11 @@ const gridSearchInput = document.getElementById('gridSearchInput');
 const gridOpenAddModalBtn = document.getElementById('gridOpenAddModalBtn');
 const gridToggleListBtn = document.getElementById('gridToggleListBtn');
 const gridToggleGridBtn = document.getElementById('gridToggleGridBtn');
-let currentViewMode = 'list';
+const decreaseCardSizeBtn = document.getElementById('decreaseCardSizeBtn');
+const increaseCardSizeBtn = document.getElementById('increaseCardSizeBtn');
+const CARD_SIZES = ['compact', 'medium', 'large'];
+let currentViewMode = 'grid';
+let currentCardSize = 'medium';
 
 let appSettings = {
   questTimerEnabled: true,
@@ -111,7 +115,8 @@ let appSettings = {
   autoStopOnComplete: true,
   notifyOnComplete: true,
   minimizeToTray: true,
-  preferredViewMode: 'list'
+  preferredViewMode: 'grid',
+  cardSize: 'medium'
 };
 
 const activeQuestTimers = new Map(); // key -> { startTime, durationMs, game, notified }
@@ -504,13 +509,30 @@ function setViewMode(mode) {
   }
 }
 
+function setCardSize(size, persist = true) {
+  const normalizedSize = CARD_SIZES.includes(size) ? size : 'medium';
+  currentCardSize = normalizedSize;
+  appSettings.cardSize = normalizedSize;
+  if (mainGamesGrid) mainGamesGrid.dataset.cardSize = normalizedSize;
+
+  const sizeIndex = CARD_SIZES.indexOf(normalizedSize);
+  if (decreaseCardSizeBtn) decreaseCardSizeBtn.disabled = sizeIndex === 0;
+  if (increaseCardSizeBtn) increaseCardSizeBtn.disabled = sizeIndex === CARD_SIZES.length - 1;
+
+  if (!persist) return;
+  try { localStorage.setItem('cardSize', normalizedSize); } catch {}
+  if (launcherApi.saveSettings) launcherApi.saveSettings(appSettings).catch(() => {});
+}
+
 // Synchronous instant view restoration before any async calls or network sync
+let savedViewMode = null;
+let savedCardSize = null;
 try {
-  const savedMode = localStorage.getItem('preferredViewMode');
-  if (savedMode === 'grid') {
-    setViewMode('grid');
-  }
+  savedViewMode = localStorage.getItem('preferredViewMode');
+  savedCardSize = localStorage.getItem('cardSize');
 } catch {}
+setViewMode(savedViewMode === 'list' || savedViewMode === 'grid' ? savedViewMode : currentViewMode);
+setCardSize(CARD_SIZES.includes(savedCardSize) ? savedCardSize : currentCardSize, false);
 
 function showHeroDetailsFromGrid() {
   if (gridSection) gridSection.style.display = 'none';
@@ -1093,6 +1115,18 @@ if (gridSearchInput) {
 if (gridOpenAddModalBtn) gridOpenAddModalBtn.onclick = openModal;
 if (gridToggleListBtn) gridToggleListBtn.addEventListener('click', () => setViewMode('list'));
 if (gridToggleGridBtn) gridToggleGridBtn.addEventListener('click', () => setViewMode('grid'));
+if (decreaseCardSizeBtn) {
+  decreaseCardSizeBtn.addEventListener('click', () => {
+    const nextIndex = Math.max(0, CARD_SIZES.indexOf(currentCardSize) - 1);
+    setCardSize(CARD_SIZES[nextIndex]);
+  });
+}
+if (increaseCardSizeBtn) {
+  increaseCardSizeBtn.addEventListener('click', () => {
+    const nextIndex = Math.min(CARD_SIZES.length - 1, CARD_SIZES.indexOf(currentCardSize) + 1);
+    setCardSize(CARD_SIZES[nextIndex]);
+  });
+}
 
 if (viewModeListBtn) viewModeListBtn.addEventListener('click', () => setViewMode('list'));
 if (viewModeGridBtn) viewModeGridBtn.addEventListener('click', () => setViewMode('grid'));
@@ -1382,6 +1416,7 @@ if (settingsCancelBtn) settingsCancelBtn.addEventListener('click', closeSettings
 if (settingsSaveBtn) {
   settingsSaveBtn.addEventListener('click', async () => {
     appSettings = {
+      ...appSettings,
       questTimerEnabled: settingQuestTimerEnabled ? settingQuestTimerEnabled.checked : true,
       questDurationMinutes: settingQuestDuration ? parseInt(settingQuestDuration.value, 10) || 15 : 15,
       autoStopOnComplete: settingAutoStop ? settingAutoStop.checked : true,
@@ -1482,6 +1517,7 @@ launcherApi.onGameExited((payload = {}) => {
         if (s.preferredViewMode && s.preferredViewMode !== currentViewMode) {
           setViewMode(s.preferredViewMode);
         }
+        if (s.cardSize) setCardSize(s.cardSize, false);
       }
     } catch {}
   }
