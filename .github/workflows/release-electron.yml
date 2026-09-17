@@ -67,7 +67,7 @@ jobs:
           npm version $v --no-git-tag-version
           Pop-Location
 
-      - name: Build and publish installer + latest.yml
+      - name: Publish installer, portable app, and update metadata
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

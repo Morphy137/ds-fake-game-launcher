@@ -20,7 +20,7 @@
     "dist": "npm run build:dummy && electron-builder --win nsis --publish never",
     "dist:portable": "npm run build:dummy && electron-builder --win portable --publish never",
     "dist:all": "npm run build:dummy && electron-builder --win nsis portable --publish never",
-    "dist:publish": "npm run build:dummy && electron-builder --win nsis --publish always"
+    "dist:publish": "npm run build:dummy && electron-builder --win nsis portable --publish always"
   },
   "devDependencies": {
     "electron": "^30.0.0",
@@ -63,6 +63,7 @@
       }
     ],
     "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowElevation": true,
@@ -70,6 +71,9 @@
       "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
       "shortcutName": "Discord Fake Game Launcher"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
     }
   }
 }

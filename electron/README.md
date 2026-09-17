@@ -31,6 +31,8 @@ This produces an assisted NSIS installer in `electron/dist/`. It installs for th
 npm run dist:portable
 ```
 
+GitHub releases publish both formats with explicit `Setup` and `Portable` filenames. Automatic updates use the installer metadata; portable users are directed to download and replace the portable executable manually.
+
 Notes:
 - The UI stores your installed games in Electron userData as `myGames.json`.
 - It stores Discord's detectable app list in userData as `gamelist.json`.
