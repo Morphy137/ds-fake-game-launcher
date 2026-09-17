@@ -74,7 +74,7 @@ jobs:
         run: |
           $v = "${{ steps.ver.outputs.version }}"
           Push-Location electron
-          npm version $v --no-git-tag-version
+          npm version $v --no-git-tag-version --allow-same-version
           Pop-Location
 
       - name: Publish installer, portable app, and update metadata
